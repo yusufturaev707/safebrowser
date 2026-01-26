@@ -69,13 +69,39 @@ class FaceAnalyzer:
     def is_initialized(self) -> bool:
         return self._initialized
 
-    def detect_faces(self, image: np.ndarray) -> List:
-        """Yuzlarni aniqlash"""
+    def detect_faces(self, image: np.ndarray, multi_scale: bool = True) -> List:
+        """
+        Yuzlarni aniqlash
+        Multi-scale detection - yaqin va uzoqdan ham aniqlay oladi
+
+        Args:
+            image: RGB formatdagi rasm
+            multi_scale: True bo'lsa, turli o'lchamlarda urinib ko'radi
+        """
         if not self._initialized or self._app is None:
             return []
 
         try:
-            return self._app.get(image)
+            import cv2
+
+            # 1-urinish: Original o'lchamda
+            faces = self._app.get(image)
+
+            if not faces and multi_scale:
+                h, w = image.shape[:2]
+
+                # 2-urinish: 50% kichikroq (yaqindan qarash holati)
+                if w > 200 and h > 200:
+                    small_image = cv2.resize(image, None, fx=0.5, fy=0.5)
+                    faces = self._app.get(small_image)
+
+                # 3-urinish: 35% kichikroq
+                if not faces and w > 150 and h > 150:
+                    smaller_image = cv2.resize(image, None, fx=0.35, fy=0.35)
+                    faces = self._app.get(smaller_image)
+
+            return faces if faces else []
+
         except Exception as e:
             print(f"Face detection error: {e}")
             return []

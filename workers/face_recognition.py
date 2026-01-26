@@ -14,6 +14,43 @@ from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QMutexLocker
 from utils.helpers import cosine_similarity, get_percentage
 from config.config import config
 
+
+def add_padding_to_face(face_image: np.ndarray, padding_ratio: float = 0.5) -> np.ndarray:
+    """
+    Cropped face ga fon (padding) qo'shish
+    InsightFace detection uchun kerak - faqat yuz bo'lsa aniqlamaydi
+
+    Args:
+        face_image: Kesib olingan yuz rasmi
+        padding_ratio: Qo'shiladigan padding nisbati (0.5 = 50% har tomondan)
+
+    Returns:
+        Padded image
+    """
+    if face_image is None:
+        return None
+
+    h, w = face_image.shape[:2]
+
+    # Padding o'lchami
+    pad_x = int(w * padding_ratio)
+    pad_y = int(h * padding_ratio)
+
+    # Yangi o'lcham
+    new_w = w + 2 * pad_x
+    new_h = h + 2 * pad_y
+
+    # Qora fon bilan yangi rasm
+    if len(face_image.shape) == 3:
+        padded = np.zeros((new_h, new_w, face_image.shape[2]), dtype=face_image.dtype)
+    else:
+        padded = np.zeros((new_h, new_w), dtype=face_image.dtype)
+
+    # Yuzni markazga joylashtirish
+    padded[pad_y:pad_y+h, pad_x:pad_x+w] = face_image
+
+    return padded
+
 class CPUOptimizedFaceIdWorker(QThread):
     """
     Nomzod yuzini tekshirish workeri
@@ -108,11 +145,41 @@ class CPUOptimizedFaceIdWorker(QThread):
             return None, str(e)
 
     def _get_embedding(self, image) -> tuple:
-        """Rasmdan embedding olish"""
+        """
+        Rasmdan embedding olish
+        Padding + Multi-scale detection
+        """
         try:
+            h, w = image.shape[:2]
+            method_used = "original"
+
+            # 1-urinish: Original o'lchamda
             faces = self.app.get(image)
+
+            # 2-urinish: Padding qo'shish (cropped face uchun)
             if not faces:
+                method_used = "padded"
+                padded_image = add_padding_to_face(image, padding_ratio=0.6)
+                faces = self.app.get(padded_image)
+
+            # 3-urinish: Kichikroq padding
+            if not faces:
+                method_used = "padded_small"
+                padded_image = add_padding_to_face(image, padding_ratio=0.4)
+                faces = self.app.get(padded_image)
+
+            # 4-urinish: Resize qilish
+            if not faces and w > 200 and h > 200:
+                method_used = "resized_0.5"
+                small_image = cv2.resize(image, None, fx=0.5, fy=0.5)
+                padded_small = add_padding_to_face(small_image, padding_ratio=0.5)
+                faces = self.app.get(padded_small)
+
+            if not faces:
+                print(f"[GetEmbedding] Yuz topilmadi! size={w}x{h}")
                 return None, "Yuz topilmadi"
+
+            print(f"[GetEmbedding] OK: method={method_used}, size={w}x{h}")
             return faces[0].embedding, None
         except Exception as e:
             return None, str(e)
@@ -241,10 +308,35 @@ class FaceIdStaffWorker(QThread):
             if self.app is None:
                 return {"is_verified": False, "message": "Model yuklanmadi"}
 
+            # Padding + Multi-scale detection
+            h, w = face.shape[:2]
+            method_used = "original"
             faces = self.app.get(face)
+
+            # Padding qo'shish (cropped face uchun asosiy yechim)
             if not faces:
+                method_used = "padded"
+                padded_face = add_padding_to_face(face, padding_ratio=0.6)
+                faces = self.app.get(padded_face)
+
+            # Kichikroq padding
+            if not faces:
+                method_used = "padded_small"
+                padded_face = add_padding_to_face(face, padding_ratio=0.4)
+                faces = self.app.get(padded_face)
+
+            # Resize + padding
+            if not faces and w > 200 and h > 200:
+                method_used = "resized+padded"
+                small_face = cv2.resize(face, None, fx=0.5, fy=0.5)
+                padded_small = add_padding_to_face(small_face, padding_ratio=0.5)
+                faces = self.app.get(padded_small)
+
+            if not faces:
+                print(f"[StaffVerify] Yuz aniqlanmadi! size={w}x{h}")
                 return {"is_verified": False, "message": "Yuz aniqlanmadi"}
 
+            print(f"[StaffVerify] OK: method={method_used}, size={w}x{h}")
             embedding = faces[0].embedding.tolist()
 
             response = requests.post(
@@ -336,14 +428,43 @@ class Camera1Worker(QThread):
             return embedding, face
 
     def _verify_face(self, ps_embedding, live_face) -> dict:
-        """Yuzni tekshirish"""
+        """
+        Yuzni tekshirish
+        Multi-scale detection qo'llab-quvvatlash
+        """
         try:
             if self.app is None:
                 return {"is_verified": False, "message": "App not initialized"}
 
+            # Padding + Multi-scale detection
+            h, w = live_face.shape[:2]
+            method_used = "original"
             faces = self.app.get(live_face)
+
+            # Padding qo'shish (cropped face uchun asosiy yechim)
             if not faces:
+                method_used = "padded"
+                padded_face = add_padding_to_face(live_face, padding_ratio=0.6)
+                faces = self.app.get(padded_face)
+
+            # Kichikroq padding
+            if not faces:
+                method_used = "padded_small"
+                padded_face = add_padding_to_face(live_face, padding_ratio=0.4)
+                faces = self.app.get(padded_face)
+
+            # Resize + padding
+            if not faces and w > 200 and h > 200:
+                method_used = "resized+padded"
+                small_face = cv2.resize(live_face, None, fx=0.5, fy=0.5)
+                padded_small = add_padding_to_face(small_face, padding_ratio=0.5)
+                faces = self.app.get(padded_small)
+
+            if not faces:
+                print(f"[Camera1Verify] Yuz topilmadi! size={w}x{h}")
                 return {"is_verified": False, "message": "Yuz topilmadi"}
+
+            print(f"[Camera1Verify] OK: method={method_used}, size={w}x{h}")
 
             live_embedding = faces[0].embedding
 

@@ -268,7 +268,7 @@ class Ui_MainWindow(object):
         self.label_9.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.label_9.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
         self.label_9.setText("")
-        self.label_9.setPixmap(QtGui.QPixmap("resources/images/login4x.png"))
+        self.label_9.setPixmap(QtGui.QPixmap("resources/images/id.png"))
         self.label_9.setScaledContents(True)
         self.label_9.setObjectName("label_9")
         self.horizontalLayout_2.addWidget(self.label_9)
@@ -342,7 +342,7 @@ class Ui_MainWindow(object):
         self.input_pinfl.setFont(font)
         self.input_pinfl.setTabletTracking(False)
         self.input_pinfl.setStyleSheet("QLineEdit {\n"
-"    font-size: 28px;\n"
+"    font-size: 36px;\n"
 "    font-weight: 600;\n"
 "    padding: 12px 16px;\n"
 "    letter-spacing: 4px;\n"
@@ -509,10 +509,10 @@ class Ui_MainWindow(object):
         self.btn_candidate_next.setStyleSheet("QPushButton {\n"
 "    background-color: #318CE7;\n"
 "    color: white;\n"
-"    border: none;\n"
+"    border: 1px solid blue;\n"
 "    border-radius: 8px;\n"
 "    padding: 8px 16px;\n"
-"    font-size: 22px;\n"
+"    font-size: 24px;\n"
 "}\n"
 "\n"
 "QPushButton:hover {\n"
@@ -673,7 +673,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_8.addItem(spacerItem30)
         self.label_7 = QtWidgets.QLabel(parent=self.page_no_internet)
         self.label_7.setText("")
-        self.label_7.setPixmap(QtGui.QPixmap(":/atic/no-wifi.png"))
+        self.label_7.setPixmap(QtGui.QPixmap("resources/images/no-wifi.png"))
         self.label_7.setScaledContents(True)
         self.label_7.setObjectName("label_7")
         self.verticalLayout_8.addWidget(self.label_7)

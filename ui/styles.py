@@ -261,6 +261,100 @@ QLabel[class="status-warning"] {
 }
 """
 
+# Camera Overlay - Material Design 3 Style
+CAMERA_OVERLAY_STYLE = """
+/* Camera Overlay Container - Glassmorphism + Material 3 */
+QFrame#camera_overlay_container {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 rgba(15, 23, 42, 0.95),
+        stop:0.5 rgba(30, 41, 59, 0.92),
+        stop:1 rgba(15, 23, 42, 0.95));
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    border-radius: 16px;
+}
+
+/* Camera Header Bar */
+QFrame#camera_header {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 rgba(34, 197, 94, 0.9),
+        stop:0.5 rgba(16, 185, 129, 0.85),
+        stop:1 rgba(34, 197, 94, 0.9));
+    border: none;
+    border-radius: 0px 0px 0px 0px;
+    min-height: 32px;
+    max-height: 32px;
+}
+
+/* Camera Title Label */
+QLabel#camera_title {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    padding-left: 8px;
+    letter-spacing: 0.5px;
+}
+
+/* Camera Status Indicator - Recording Dot */
+QLabel#camera_status_dot {
+    background: qradialgradient(cx:0.5, cy:0.5, radius:0.5,
+        fx:0.3, fy:0.3,
+        stop:0 #ffffff,
+        stop:0.3 #ef4444,
+        stop:1 #dc2626);
+    border-radius: 5px;
+    min-width: 10px;
+    max-width: 10px;
+    min-height: 10px;
+    max-height: 10px;
+    margin-right: 8px;
+}
+
+/* Camera Video Display Area */
+QLabel#camera_video_label {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #0f172a,
+        stop:0.5 #1e293b,
+        stop:1 #0f172a);
+    border: none;
+    border-radius: 0px 0px 14px 14px;
+    padding: 4px;
+}
+
+/* Camera Overlay Frame Border Glow Effect */
+QFrame#camera_glow_border {
+    background: transparent;
+    border: 2px solid qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 #22c55e,
+        stop:0.5 #10b981,
+        stop:1 #22c55e);
+    border-radius: 18px;
+}
+
+/* Minimize Button on Camera */
+QPushButton#camera_minimize_btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 9px;
+    font-weight: bold;
+    min-width: 20px;
+    max-width: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    margin-right: 4px;
+}
+
+QPushButton#camera_minimize_btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+QPushButton#camera_minimize_btn:pressed {
+    background: rgba(255, 255, 255, 0.35);
+}
+"""
+
 # Page-specific styles
 PAGE_MAIN_STYLE = """
 /* Page Main - Material Card Style */
@@ -281,8 +375,8 @@ QLabel#label_2 {
 
 QPushButton#btn_next_page {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 #4ade80, stop:1 #22c55e);
-    font-size: 18px;
+        stop:0 #4ade80, stop:1 #3B82F6);
+    font-size: 24px;
     padding: 16px 40px;
     min-width: 180px;
     border-radius: 12px;
@@ -321,7 +415,7 @@ QLabel#label_face {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
         stop:0 #1e293b, stop:1 #0f172a);
     border: 3px solid #3b82f6;
-    border-radius: 20px;
+    border-radius: 5px;
     min-width: 480px;
     max-width: 480px;
     min-height: 360px;
@@ -332,7 +426,7 @@ QLabel#label_video_box {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
         stop:0 #1e293b, stop:1 #0f172a);
     border: 3px solid #3b82f6;
-    border-radius: 20px;
+    border-radius: 2px;
     min-width: 520px;
     max-width: 520px;
     min-height: 390px;
@@ -376,9 +470,9 @@ QLabel#label {
 }
 
 QLineEdit#input_pinfl {
-    font-size: 32px;
+    font-size: 48px;
     font-weight: 600;
-    padding: 22px 32px;
+    padding: 15px 30px;
     min-width: 450px;
     min-height: 70px;
     text-align: center;
@@ -508,5 +602,6 @@ def get_full_stylesheet():
         PAGE_FACE_STYLE +
         PAGE_PINFL_STYLE +
         PAGE_NOTE_STYLE +
-        PAGE_NO_INTERNET_STYLE
+        PAGE_NO_INTERNET_STYLE +
+        CAMERA_OVERLAY_STYLE
     )

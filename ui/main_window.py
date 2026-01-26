@@ -54,7 +54,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QMainWindow, QMessageBox, QLabel, QDialog,
     QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QGraphicsDropShadowEffect,
+    QGraphicsDropShadowEffect, QFrame, QWidget, QSizePolicy,
 )
 
 
@@ -95,6 +95,287 @@ class DraggableLabel(QLabel):
         super().mouseReleaseEvent(event)
 
 
+from PyQt6.QtCore import pyqtSignal as Signal
+
+
+class CameraOverlayWidget(QFrame):
+    """
+    Material Design 3 styled kamera overlay widget
+    Glassmorphism effekti va chiroyli dizayn bilan
+    """
+    # Chiqish tugmasi bosilganda signal
+    exit_requested = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._dragging = False
+        self._drag_start_pos = None
+        self._is_minimized = False
+        self._full_size = (256, 216)
+        self._mini_size = (125, 32)
+        self._pulse_state = True
+
+        self.setObjectName("camera_overlay_container")
+        self.setFixedSize(*self._full_size)
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+
+        self._setup_ui()
+        self._apply_shadow()
+        self._start_pulse_animation()
+
+    def _setup_ui(self):
+        """UI komponentlarini sozlash"""
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Header bar
+        self.header = QFrame()
+        self.header.setObjectName("camera_header")
+        self.header.setFixedHeight(32)
+
+        header_layout = QHBoxLayout(self.header)
+        header_layout.setContentsMargins(8, 0, 4, 0)
+        header_layout.setSpacing(4)
+
+        # Camera icon (emoji as text)
+        camera_icon = QLabel("")
+        camera_icon.setStyleSheet("""
+            font-size: 12px;
+            background: transparent;
+            padding: 0;
+        """)
+
+        # Title
+        self.title_label = QLabel("Kamera")
+        self.title_label.setObjectName("camera_title")
+
+        # Status dot (recording indicator)
+        self.status_dot = QLabel()
+        self.status_dot.setObjectName("camera_status_dot")
+        self.status_dot.setToolTip("Yozilmoqda...")
+
+        # Minimize button
+        self.minimize_btn = QPushButton("")
+        self.minimize_btn.setObjectName("camera_minimize_btn")
+        self.minimize_btn.setToolTip("Kichiklashtirish")
+        self.minimize_btn.clicked.connect(self._toggle_minimize)
+
+        # Exit button (chiqish)
+        self.exit_btn = QPushButton("✕")
+        self.exit_btn.setObjectName("camera_exit_btn")
+        self.exit_btn.setToolTip("Testdan chiqish")
+        self.exit_btn.clicked.connect(self._on_exit_clicked)
+
+        header_layout.addWidget(camera_icon)
+        header_layout.addWidget(self.title_label)
+        header_layout.addStretch()
+        header_layout.addWidget(self.status_dot)
+        header_layout.addWidget(self.minimize_btn)
+        header_layout.addWidget(self.exit_btn)
+
+        # Video display area
+        self.video_label = QLabel()
+        self.video_label.setObjectName("camera_video_label")
+        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.video_label.setMinimumSize(252, 180)
+        self.video_label.setScaledContents(False)
+
+        # Add to main layout
+        main_layout.addWidget(self.header)
+        main_layout.addWidget(self.video_label, 1)
+
+        # Apply container style
+        self.setStyleSheet("""
+            QFrame#camera_overlay_container {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(15, 23, 42, 0.97),
+                    stop:0.5 rgba(30, 41, 59, 0.95),
+                    stop:1 rgba(15, 23, 42, 0.97));
+                border: 2px solid qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(34, 197, 94, 0.8),
+                    stop:0.5 rgba(16, 185, 129, 0.6),
+                    stop:1 rgba(34, 197, 94, 0.8));
+                border-radius: 16px;
+            }
+
+            QFrame#camera_header {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba(34, 197, 94, 0.95),
+                    stop:0.3 rgba(16, 185, 129, 0.9),
+                    stop:0.7 rgba(16, 185, 129, 0.9),
+                    stop:1 rgba(34, 197, 94, 0.95));
+                border: none;
+                border-radius: 14px 14px 0px 0px;
+            }
+
+            QLabel#camera_title {
+                color: #ffffff;
+                font-size: 12px;
+                font-weight: 600;
+                background: transparent;
+                letter-spacing: 0.3px;
+            }
+
+            QLabel#camera_status_dot {
+                background: qradialgradient(cx:0.5, cy:0.5, radius:0.5,
+                    fx:0.3, fy:0.3,
+                    stop:0 #ffffff,
+                    stop:0.4 #ef4444,
+                    stop:1 #b91c1c);
+                border: 1px solid rgba(255, 255, 255, 0.25);
+                border-radius: 5px;
+                min-width: 10px;
+                max-width: 10px;
+                min-height: 10px;
+                max-height: 10px;
+            }
+
+            QLabel#camera_video_label {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #0f172a,
+                    stop:0.5 #1e293b,
+                    stop:1 #0f172a);
+                border: none;
+                border-radius: 0px 0px 14px 14px;
+                padding: 4px;
+            }
+
+            /* Camera header buttons - shared style */
+            QPushButton#camera_minimize_btn, QPushButton#camera_exit_btn {
+                border: none;
+                border-radius: 4px;
+                color: white;
+                font-size: 10px;
+                font-weight: 600;
+                min-width: 20px;
+                max-width: 20px;
+                min-height: 20px;
+                max-height: 20px;
+                padding: 0;
+                margin: 0 1px;
+            }
+
+            QPushButton#camera_minimize_btn {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            QPushButton#camera_minimize_btn:hover {
+                background: rgba(255, 255, 255, 0.35);
+            }
+            QPushButton#camera_minimize_btn:pressed {
+                background: rgba(255, 255, 255, 0.5);
+            }
+
+            QPushButton#camera_exit_btn {
+                background: rgba(220, 38, 38, 0.85);
+            }
+            QPushButton#camera_exit_btn:hover {
+                background: rgba(239, 68, 68, 1.0);
+            }
+            QPushButton#camera_exit_btn:pressed {
+                background: rgba(185, 28, 28, 1.0);
+            }
+        """)
+
+    def _apply_shadow(self):
+        """Drop shadow effekti qo'shish"""
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(25)
+        shadow.setXOffset(0)
+        shadow.setYOffset(4)
+        shadow.setColor(QColor(0, 0, 0, 100))
+        self.setGraphicsEffect(shadow)
+
+    def _start_pulse_animation(self):
+        """Recording indicator pulsatsiya animatsiyasi"""
+        from PyQt6.QtCore import QTimer
+        self._pulse_timer = QTimer(self)
+        self._pulse_timer.timeout.connect(self._pulse_dot)
+        self._pulse_timer.start(800)  # 800ms interval
+
+    def _pulse_dot(self):
+        """Status dot pulsatsiyasi"""
+        base_style = """
+            border-radius: 5px;
+            min-width: 10px; max-width: 10px;
+            min-height: 10px; max-height: 10px;
+        """
+        if self._pulse_state:
+            self.status_dot.setStyleSheet(f"""
+                background: qradialgradient(cx:0.5, cy:0.5, radius:0.5,
+                    fx:0.3, fy:0.3, stop:0 #fff, stop:0.4 #ef4444, stop:1 #b91c1c);
+                border: 1px solid rgba(255,255,255,0.25);
+                {base_style}
+            """)
+        else:
+            self.status_dot.setStyleSheet(f"""
+                background: qradialgradient(cx:0.5, cy:0.5, radius:0.5,
+                    fx:0.3, fy:0.3, stop:0 #fecaca, stop:0.4 #f87171, stop:1 #dc2626);
+                border: 1px solid rgba(255,255,255,0.15);
+                {base_style}
+            """)
+        self._pulse_state = not self._pulse_state
+
+    def _toggle_minimize(self):
+        """Kamera oynasini kichiklashtirish/kattalashtirish"""
+        if self._is_minimized:
+            # Restore
+            self.setFixedSize(*self._full_size)
+            self.video_label.show()
+            self.minimize_btn.setText("")
+            self.minimize_btn.setToolTip("Kichiklashtirish")
+            self._is_minimized = False
+        else:
+            # Minimize
+            self.setFixedSize(*self._mini_size)
+            self.video_label.hide()
+            self.minimize_btn.setText("")
+            self.minimize_btn.setToolTip("Kattalashtirish")
+            self._is_minimized = True
+
+    def _on_exit_clicked(self):
+        """Chiqish tugmasi bosilganda"""
+        self.exit_requested.emit()
+
+    def setPixmap(self, pixmap):
+        """Video frame'ni ko'rsatish"""
+        if not self._is_minimized:
+            scaled = pixmap.scaled(
+                self.video_label.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.video_label.setPixmap(scaled)
+
+    def mousePressEvent(self, event):
+        """Drag boshlash"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_start_pos = event.pos()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """Drag qilish"""
+        if self._dragging and self._drag_start_pos:
+            new_pos = self.mapToParent(event.pos() - self._drag_start_pos)
+            parent = self.parent()
+            if parent:
+                x = max(0, min(new_pos.x(), parent.width() - self.width()))
+                y = max(0, min(new_pos.y(), parent.height() - self.height()))
+                self.move(x, y)
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Drag tugatish"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+            self._drag_start_pos = None
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+        super().mouseReleaseEvent(event)
+
+
 class MainWindow(QMainWindow, Ui_MainWindow):
     """
     SafeBrowser asosiy oynasi
@@ -127,7 +408,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._init_workers()
         self._init_ui_components()
         self._connect_signals()
-        self.setup_actions()
+        # self.setup_actions()
 
         # Show window after all initialization is complete
         self.showFullScreen()
@@ -275,18 +556,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """UI komponentlarini sozlash"""
         self.camera1_widget = None
 
-        self.camera_face_label = DraggableLabel()
-        self.camera_face_label.setFixedSize(240, 180)
-        self.camera_face_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.camera_face_label.setStyleSheet("""
-            QLabel {
-                border: 2px solid #22c55e;
-                border-radius: 14px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(30, 41, 59, 0.95),
-                    stop:1 rgba(15, 23, 42, 0.95));
-            }
-        """)
+        # Material Design 3 styled camera overlay widget
+        self.camera_overlay = CameraOverlayWidget()
+        self.camera_overlay.exit_requested.connect(self._on_camera_exit_requested)
+
+        # Legacy camera_face_label reference (for backward compatibility)
+        self.camera_face_label = self.camera_overlay
 
         # ID card design
         self._setup_id_card()
@@ -299,6 +574,32 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.btn_check_im.clicked.connect(self._on_check_pinfl)
         self.btn_candidate_next.clicked.connect(self._on_candidate_continue)
         self.btn_candidate_next.hide()
+
+        # btn_candidate_next - Material Design style
+        self.btn_candidate_next.setText("Davom etish →")
+        self.btn_candidate_next.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3B82F6, stop:1 #3B82F6);
+                color: white;
+                font-size: 28px;
+                font-weight: 700;
+                padding: 15px 48px;
+                border: none;
+                border-radius: 14px;
+                min-width: 200px;
+                min-height: 30px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #208AE7, stop:1 #208AE7);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #15803d, stop:1 #166534);
+            }
+        """)
+
         self.btn_next_page.clicked.connect(self._on_staff_face_page)
         self.btn_start_test.clicked.connect(self._on_start_test)
 
@@ -414,17 +715,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         file_menu = self.menuBar().addMenu("File")
         file_menu.addAction(exit_action)
 
-    # Event handlers
-    # def keyPressEvent(self, event):
-    #     """Tugma bosilganda"""
-    #     try:
-    #         if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-    #             if event.key() == Qt.Key.Key_Q:
-    #                 if self.request_exit_password():
-    #                     self.stop_all_workers()
-    #                     self.close()
-    #     except Exception as e:
-    #         print(f"KeyPress error: {e}")
+    #Event handlers
+    def keyPressEvent(self, event):
+        """Tugma bosilganda"""
+        try:
+            if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                if event.key() == Qt.Key.Key_Q:
+                    if self.request_exit_password():
+                        self.stop_all_workers()
+                        self.close()
+        except Exception as e:
+            print(f"KeyPress error: {e}")
 
     def closeEvent(self, event):
         """Oyna yopilganda"""
@@ -441,14 +742,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _update_camera_overlay_position(self):
         """Kamera overlay joylashuvini yangilash"""
         try:
-            if hasattr(self, 'camera_face_label') and self.camera_face_label.isVisible():
-                parent = self.camera_face_label.parent()
+            if hasattr(self, 'camera_overlay') and self.camera_overlay.isVisible():
+                parent = self.camera_overlay.parent()
                 if parent:
                     # O'ng yuqori burchakda joylash
-                    x = parent.width() - self.camera_face_label.width() - 20
+                    x = parent.width() - self.camera_overlay.width() - 20
                     y = 20
-                    self.camera_face_label.move(x, y)
-                    self.camera_face_label.raise_()
+                    self.camera_overlay.move(x, y)
+                    self.camera_overlay.raise_()
         except Exception as e:
             print(f"Camera overlay position error: {e}")
 
@@ -571,6 +872,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.show_message("Xatolik", "Passport rasmi topilmadi!", 0)
                 return
 
+            # Verification holatini reset qilish
+            self.is_verified = False
+
             # Oldingi worker'larni to'xtatish
             if self.face_detector_worker and self.face_detector_worker.isRunning():
                 self.face_detector_worker.stop()
@@ -588,9 +892,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.face_identification_worker.result_ready.connect(self._on_candidate_face_result)
             self.face_identification_worker.start()
 
-            # UI holatini yangilash
-            self.label_result_face_candidate.setText("Yuzingizni kameraga ko'rsating...")
-            self.label_result_face_candidate.setStyleSheet("color: #f59e0b; font-size: 14px;")
+            # UI holatini yangilash - ko'k Material Design card
+            self.label_result_face_candidate.setText("◎ Yuzingizni kameraga ko'rsating...")
+            self.label_result_face_candidate.setStyleSheet("""
+                QLabel {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #3b82f6, stop:1 #2563eb);
+                    color: white;
+                    font-size: 22px;
+                    font-weight: 600;
+                    padding: 16px 28px;
+                    border-radius: 14px;
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                }
+            """)
             self.btn_candidate_next.hide()
 
             print("Candidate face verification boshlandi...")
@@ -630,6 +945,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     cropped_face=rgb_face,
                     score=self.score
                 )
+            else:
+                # Yuz topilmadi - sariq ogohlantirish (faqat tasdiqlanmagan bo'lsa)
+                if not self.is_verified:
+                    self.label_result_face_candidate.setText("◎ Yuzingizni kameraga ko'rsating...")
+                    self.label_result_face_candidate.setStyleSheet("""
+                        QLabel {
+                            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #fbbf24, stop:1 #f59e0b);
+                            color: #1e293b;
+                            font-size: 22px;
+                            font-weight: 600;
+                            padding: 16px 28px;
+                            border-radius: 14px;
+                            border: 1px solid rgba(0, 0, 0, 0.1);
+                        }
+                    """)
+
         except Exception as e:
             print(f"Candidate face detected handler error: {e}")
 
@@ -642,14 +974,29 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             message = data.get("message", "")
 
             if is_verified:
-                # Muvaffaqiyatli
+                # Muvaffaqiyatli - yashil Material Design card
                 self.is_verified = True
                 self.ps_embedding = data.get("ps_embedding")
 
+                # Face detector va identification worker'larni to'xtatish
+                if self.face_detector_worker and self.face_detector_worker.isRunning():
+                    self.face_detector_worker.stop()
+                if self.face_identification_worker and self.face_identification_worker.isRunning():
+                    self.face_identification_worker.stop()
+
                 self.label_result_face_candidate.setText(f"✓ Tasdiqlandi! ({similarity}%)")
-                self.label_result_face_candidate.setStyleSheet(
-                    "color: #22c55e; font-size: 18px; font-weight: bold;"
-                )
+                self.label_result_face_candidate.setStyleSheet("""
+                    QLabel {
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                            stop:0 #22C55E, stop:1 #16a34a);
+                        color: white;
+                        font-size: 24px;
+                        font-weight: 700;
+                        padding: 18px 32px;
+                        border-radius: 14px;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    }
+                """)
 
                 # Davom etish tugmasini ko'rsatish
                 self.btn_candidate_next.show()
@@ -657,11 +1004,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 print(f"Nomzod tasdiqlandi: {similarity}%")
 
             else:
-                # Hali tasdiqlanmagan
-                self.label_result_face_candidate.setText(f"Tekshirilmoqda... {message}")
-                self.label_result_face_candidate.setStyleSheet(
-                    "color: #f59e0b; font-size: 14px;"
-                )
+                # Tasdiqlanmadi - qizil Material Design card
+                display_message = message if message else "Yuz tanilmadi"
+                self.label_result_face_candidate.setText(f"✗ {display_message}")
+                self.label_result_face_candidate.setStyleSheet("""
+                    QLabel {
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                            stop:0 #ef4444, stop:1 #dc2626);
+                        color: white;
+                        font-size: 22px;
+                        font-weight: 600;
+                        padding: 16px 28px;
+                        border-radius: 14px;
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                    }
+                """)
 
         except Exception as e:
             print(f"Candidate face result handler error: {e}")
@@ -717,6 +1074,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.show_message("Xatolik", "Yuz aniqlash modeli yuklanmagan!", 0)
                 return
 
+            # Boshlang'ich holat - kutish (ko'k Material Design card)
+            self.label_response.setText("◎ Yuzingizni kameraga ko'rsating...")
+            self.label_response.setStyleSheet("""
+                QLabel {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #3b82f6, stop:1 #2563eb);
+                    color: white;
+                    font-size: 22px;
+                    font-weight: 600;
+                    padding: 16px 28px;
+                    border-radius: 14px;
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                }
+            """)
+
             # Oldingi worker'larni to'xtatish
             if self.face_detector_worker and self.face_detector_worker.isRunning():
                 self.face_detector_worker.stop()
@@ -767,6 +1139,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     rgb_face = cropped_face
 
                 self.face_staff_worker.set_face(cropped_face=rgb_face)
+            else:
+                # Yuz topilmadi - sariq ogohlantirish
+                self.label_response.setText("◎ Yuzingizni kameraga ko'rsating...")
+                self.label_response.setStyleSheet("""
+                    QLabel {
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                            stop:0 #fbbf24, stop:1 #f59e0b);
+                        color: #1e293b;
+                        font-size: 22px;
+                        font-weight: 600;
+                        padding: 16px 28px;
+                        border-radius: 14px;
+                        border: 1px solid rgba(0, 0, 0, 0.1);
+                    }
+                """)
 
         except Exception as e:
             print(f"Staff face detected handler error: {e}")
@@ -779,11 +1166,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             message = data.get("message", "")
 
             if is_verified:
-                # Muvaffaqiyatli - natijani ko'rsatish
+                # Muvaffaqiyatli - yashil Material Design card
                 self.label_response.setText("✓ Xodim tasdiqlandi!")
-                self.label_response.setStyleSheet(
-                    "color: #22c55e; font-size: 18px; font-weight: bold;"
-                )
+                self.label_response.setStyleSheet("""
+                    QLabel {
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                            stop:0 #22c55e, stop:1 #16a34a);
+                        color: white;
+                        font-size: 24px;
+                        font-weight: 700;
+                        padding: 18px 32px;
+                        border-radius: 14px;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    }
+                """)
 
                 # Face detection'ni to'xtatish
                 if self.face_detector_worker and self.face_detector_worker.isRunning():
@@ -797,11 +1193,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 print(f"Xodim tasdiqlandi: {message}")
 
             else:
-                # Xatolik - tekshiruv davom etadi
-                self.label_response.setText(f"Tekshirilmoqda... {message}")
-                self.label_response.setStyleSheet(
-                    "color: #f59e0b; font-size: 14px;"
-                )
+                # Tasdiqlanmadi - qizil Material Design card
+                display_message = message if message else "Yuz tanilmadi"
+                self.label_response.setText(f"✗ {display_message}")
+                self.label_response.setStyleSheet("""
+                    QLabel {
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                            stop:0 #ef4444, stop:1 #dc2626);
+                        color: white;
+                        font-size: 22px;
+                        font-weight: 600;
+                        padding: 16px 28px;
+                        border-radius: 14px;
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                    }
+                """)
 
         except Exception as e:
             print(f"Staff face result handler error: {e}")
@@ -914,8 +1320,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.screen_recorder_worker.stop()
 
                 # Kamera overlay'ni yashirish
-                if hasattr(self, 'camera_face_label'):
-                    self.camera_face_label.hide()
+                if hasattr(self, 'camera_overlay'):
+                    self.camera_overlay.hide()
 
                 # Warning modal ko'rsatish (3 soniyadan keyin avtomatik yopiladi)
                 self.monitor_warning_modal.exec()
@@ -925,6 +1331,33 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             print(f"Monitor detected handler error: {e}")
+
+    def _on_camera_exit_requested(self):
+        """Kamera overlay'dan chiqish so'ralganda"""
+        try:
+            print("Testdan chiqish so'raldi...")
+
+            # Barcha monitoring worker'larni to'xtatish
+            self._stop_monitor_checking()
+
+            if self.face_detector_worker and self.face_detector_worker.isRunning():
+                self.face_detector_worker.stop()
+
+            if self.camera1_worker and self.camera1_worker.isRunning():
+                self.camera1_worker.stop()
+
+            if self.screen_recorder_worker and self.screen_recorder_worker.isRunning():
+                self.screen_recorder_worker.stop()
+
+            # Kamera overlay'ni yashirish
+            if hasattr(self, 'camera_overlay'):
+                self.camera_overlay.hide()
+
+            # PINFL sahifasiga qaytish
+            self._return_to_pinfl_page()
+
+        except Exception as e:
+            print(f"Camera exit error: {e}")
 
     def _return_to_pinfl_page(self):
         """PINFL sahifasiga qaytish va holatni tozalash"""
@@ -960,19 +1393,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     break
 
             if page_test:
-                # camera_face_label ni page_test ning child qilish (overlay)
-                self.camera_face_label.setParent(page_test)
-                self.camera_face_label.setStyleSheet("""
-                    QLabel {
-                        border: 2px solid #22c55e;
-                        border-radius: 10px;
-                        background: rgba(15, 23, 42, 0.9);
-                        padding: 2px;
-                    }
-                """)
-                self.camera_face_label.setFixedSize(200, 150)
-                self.camera_face_label.show()
-                self.camera_face_label.raise_()
+                # Camera overlay'ni page_test ning child qilish
+                self.camera_overlay.setParent(page_test)
+                self.camera_overlay.show()
+                self.camera_overlay.raise_()
 
                 # Sahifa to'liq yuklangandan keyin joylashni yangilash
                 from PyQt6.QtCore import QTimer
@@ -1010,12 +1434,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Kamera tasvirini UI da ko'rsatish
             if qt_image and not qt_image.isNull():
                 pixmap = QPixmap.fromImage(qt_image)
-                scaled = pixmap.scaled(
-                    self.camera_face_label.size(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
-                self.camera_face_label.setPixmap(scaled)
+                self.camera_overlay.setPixmap(pixmap)
 
             # Agar Camera1Worker mavjud bo'lsa, yuzni yuborish
             if has_face and cropped_face is not None and hasattr(self, 'camera1_worker'):
