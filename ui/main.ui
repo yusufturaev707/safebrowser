@@ -175,7 +175,7 @@
                 <property name="minimumSize">
                  <size>
                   <width>500</width>
-                  <height>0</height>
+                  <height>60</height>
                  </size>
                 </property>
                 <property name="sizeIncrement">
@@ -186,51 +186,79 @@
                 </property>
                 <property name="font">
                  <font>
-                  <family>Segoe UI</family>
+                  <family>Segoe UI,Roboto,sans-serif</family>
                   <pointsize>-1</pointsize>
+                  <weight>62</weight>
+                  <bold>true</bold>
                  </font>
                 </property>
                 <property name="styleSheet">
                  <string notr="true">QComboBox {
-    border: 2px solid #8f8f91;
-    border-radius: 8px;
-    padding: 6px 30px 6px 10px;
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                stop:0 #f0f0f0, stop:1 #dcdcdc);
-    color: #333;
+    background-color: #ffffff;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 14px 48px 14px 20px;
+    color: #1a1a2e;
     font-size: 16px;
-    font-family: Segoe UI;
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 500;
+    min-height: 28px;
 }
 
 QComboBox:hover {
-    border: 2px solid #2980b9;
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                stop:0 #e0f7fa, stop:1 #b2ebf2);
+    border: 2px solid #6C63FF;
+    background-color: #fafafa;
+}
+
+QComboBox:focus {
+    border: 2px solid #6C63FF;
+    background-color: #ffffff;
 }
 
 QComboBox::drop-down {
     subcontrol-origin: padding;
-    subcontrol-position: top right;
-    width: 25px;
-    border-left: 1px solid #888;
-    background: #ccc;
-    border-top-right-radius: 8px;
-    border-bottom-right-radius: 8px;
+    subcontrol-position: center right;
+    width: 40px;
+    border: none;
+    background: transparent;
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+    margin-right: 8px;
 }
 
 QComboBox::down-arrow {
     image: url(resources/images/arrow-down.png);
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
 }
 
 QComboBox QAbstractItemView {
-    border: 1px solid #888;
-    selection-background-color: #2980b9;
-    selection-color: white;
-    background: white;
-    font-size: 14px;
-    font-family: Segoe UI;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    selection-background-color: #6C63FF;
+    selection-color: #ffffff;
+    background: #ffffff;
+    font-size: 15px;
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    padding: 8px;
+    outline: none;
+}
+
+QComboBox QAbstractItemView::item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 2px 4px;
+    min-height: 24px;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #f0f0ff;
+    color: #6C63FF;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #6C63FF;
+    color: #ffffff;
 }</string>
                 </property>
                 <property name="currentText">
@@ -258,7 +286,7 @@ QComboBox QAbstractItemView {
                <widget class="QPushButton" name="btn_next_page">
                 <property name="font">
                  <font>
-                  <family>Segoe UI</family>
+                  <family>Segoe UI,Roboto,sans-serif</family>
                   <pointsize>-1</pointsize>
                   <weight>75</weight>
                   <bold>true</bold>
@@ -266,24 +294,35 @@ QComboBox QAbstractItemView {
                 </property>
                 <property name="styleSheet">
                  <string notr="true">QPushButton {
-    background-color: #2ecc71;
-    color: white;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #6C63FF, stop:1 #8B85FF);
+    color: #ffffff;
     border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 14px;
-    font-weight: bold;
-    font-family: &quot;Segoe UI&quot;;
+    border-radius: 14px;
+    padding: 16px 48px;
+    font-size: 17px;
+    font-weight: 600;
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    letter-spacing: 0.5px;
+    min-height: 30px;
+    min-width: 180px;
 }
 
 QPushButton:hover {
-    background-color: #A8CCB3;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #5A52E0, stop:1 #7A74E8);
 }
 
 QPushButton:pressed {
-    background-color: #1c6ea4;
-    padding-left: 10px;
-    padding-top: 10px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #4A42D0, stop:1 #6A64D8);
+    padding-left: 50px;
+    padding-top: 18px;
+}
+
+QPushButton:focus {
+    outline: none;
+    border: 2px solid #A5A0FF;
 }
 </string>
                 </property>

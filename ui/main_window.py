@@ -566,8 +566,226 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # ID card design
         self._setup_id_card()
 
+        # Page Note - Material Design styling
+        self._setup_page_note()
+
         # Load tests
         self._load_tests()
+
+    def _setup_page_note(self):
+        """Page Note - Material Design 3 stilini sozlash"""
+        try:
+            # Page background
+            self.page_note.setStyleSheet("""
+                QWidget#page_note {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #f0f9ff,
+                        stop:0.5 #e0f2fe,
+                        stop:1 #f0f9ff);
+                }
+            """)
+
+            # Title - Material Design 3 styled with icon
+            self.label_not_title.setStyleSheet("""
+                QLabel {
+                    color: #dc2626;
+                    font-size: 38px;
+                    font-weight: 700;
+                    font-family: 'Segoe UI', 'Roboto', sans-serif;
+                    letter-spacing: 0.5px;
+                    padding: 24px;
+                    background: transparent;
+                }
+            """)
+            self.label_not_title.setText("Nomzodlarga eslatma!")
+
+            # ScrollArea - glassmorphism card style
+            self.scrollArea.setStyleSheet("""
+                QScrollArea {
+                    background: rgba(255, 255, 255, 0.97);
+                    border: 1px solid rgba(148, 163, 184, 0.25);
+                    border-radius: 28px;
+                    padding: 0px;
+                }
+                QScrollArea > QWidget > QWidget {
+                    background: transparent;
+                }
+                QScrollBar:vertical {
+                    background: rgba(241, 245, 249, 0.8);
+                    width: 12px;
+                    border-radius: 6px;
+                    margin: 8px 4px;
+                }
+                QScrollBar::handle:vertical {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #6C63FF, stop:1 #8B85FF);
+                    border-radius: 6px;
+                    min-height: 40px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #5A52E0, stop:1 #7A74E8);
+                }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                    height: 0px;
+                }
+            """)
+
+            # ScrollArea content widget - layout bilan markazlashtirish
+            # Avval mavjud layoutni tozalash
+            if self.scrollAreaWidgetContents.layout():
+                old_layout = self.scrollAreaWidgetContents.layout()
+                while old_layout.count():
+                    old_layout.takeAt(0)
+
+            # Yangi VBox layout yaratish
+            content_layout = QVBoxLayout(self.scrollAreaWidgetContents)
+            content_layout.setContentsMargins(40, 30, 40, 30)
+            content_layout.setSpacing(0)
+            content_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # Warning text label ni layoutga qo'shish
+            self.label_warning_text.setParent(self.scrollAreaWidgetContents)
+            content_layout.addWidget(self.label_warning_text)
+
+            self.scrollAreaWidgetContents.setStyleSheet("""
+                QWidget {
+                    background: transparent;
+                }
+            """)
+
+            # Warning text label - centered, readable
+            self.label_warning_text.setStyleSheet("""
+                QLabel {
+                    color: #1e293b;
+                    font-size: 18px;
+                    font-weight: 500;
+                    font-family: 'Segoe UI', 'Roboto', sans-serif;
+                    line-height: 2.0;
+                    padding: 24px 40px;
+                    background: transparent;
+                }
+            """)
+            self.label_warning_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.label_warning_text.setWordWrap(True)
+            self.label_warning_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+            # Button - Material Design 3 primary button
+            self.btn_start_test.setText("Testni boshlash")
+            self.btn_start_test.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #6C63FF, stop:1 #8B85FF);
+                    color: #ffffff;
+                    font-size: 20px;
+                    font-weight: 600;
+                    font-family: 'Segoe UI', 'Roboto', sans-serif;
+                    letter-spacing: 0.5px;
+                    padding: 18px 56px;
+                    border: none;
+                    border-radius: 16px;
+                    min-width: 240px;
+                    min-height: 40px;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #5A52E0, stop:1 #7A74E8);
+                }
+                QPushButton:pressed {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #4A42D0, stop:1 #6A64D8);
+                }
+                QPushButton:focus {
+                    outline: none;
+                    border: 2px solid #A5A0FF;
+                }
+            """)
+
+            # Add shadow effect to button
+            btn_shadow = QGraphicsDropShadowEffect()
+            btn_shadow.setBlurRadius(25)
+            btn_shadow.setXOffset(0)
+            btn_shadow.setYOffset(8)
+            btn_shadow.setColor(QColor(108, 99, 255, 100))
+            self.btn_start_test.setGraphicsEffect(btn_shadow)
+
+            # Add shadow to scroll area
+            scroll_shadow = QGraphicsDropShadowEffect()
+            scroll_shadow.setBlurRadius(30)
+            scroll_shadow.setXOffset(0)
+            scroll_shadow.setYOffset(10)
+            scroll_shadow.setColor(QColor(0, 0, 0, 25))
+            self.scrollArea.setGraphicsEffect(scroll_shadow)
+
+            print("Page Note Material Design styling qo'llandi")
+
+        except Exception as e:
+            print(f"Page Note setup error: {e}")
+
+    def set_warning_text(self, text: str):
+        """API dan kelgan ogohlantirish matnini chiroyli formatda ko'rsatish"""
+        try:
+            if not text:
+                text = "Test qoidalari haqida ma'lumot mavjud emas."
+
+            # Matnni HTML formatga o'zgartirish
+            lines = text.strip().split('\n')
+            formatted_lines = []
+
+            for i, line in enumerate(lines):
+                line = line.strip()
+                if line:
+                    # Raqamli qator (1. 2. 3. ...) yoki • bilan boshlansa - card style
+                    if len(line) > 0 and (line[0].isdigit() or line.startswith('•') or line.startswith('-') or line.startswith('*')):
+                        formatted_lines.append(f'''
+                            <div style="
+                                margin: 14px auto;
+                                padding: 18px 28px;
+                                background-color: #f0f4ff;
+                                border-left: 5px solid #6C63FF;
+                                border-radius: 12px;
+                                max-width: 900px;
+                                text-align: left;
+                            ">
+                                <span style="
+                                    font-size: 17px;
+                                    font-weight: 500;
+                                    color: #1e293b;
+                                    line-height: 1.8;
+                                ">{line}</span>
+                            </div>
+                        ''')
+                    else:
+                        # Oddiy matn - sarlavha yoki tushuntirish
+                        formatted_lines.append(f'''
+                            <p style="
+                                margin: 16px auto;
+                                padding: 12px 20px;
+                                font-size: 18px;
+                                font-weight: 500;
+                                color: #334155;
+                                line-height: 1.9;
+                                max-width: 900px;
+                                text-align: center;
+                            ">{line}</p>
+                        ''')
+
+            html_content = f'''
+                <div style="
+                    text-align: center;
+                    padding: 30px 20px;
+                    font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+                ">
+                    {''.join(formatted_lines)}
+                </div>
+            '''
+
+            self.label_warning_text.setText(html_content)
+            self.label_warning_text.setTextFormat(Qt.TextFormat.RichText)
+
+        except Exception as e:
+            print(f"Set warning text error: {e}")
+            self.label_warning_text.setText(text)
 
     def _connect_signals(self):
         """Signal-slot ulanishlar"""
@@ -834,6 +1052,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 else:
                     # Yuz tekshiruvi o'chirilgan - to'g'ridan-to'g'ri keyingi sahifaga
                     self._next_page_by_name('page_note')
+                    # Warning text ni qo'llash
+                    if self.warning_text:
+                        self.set_warning_text(self.warning_text)
             else:
                 # Xatolik
                 message = result.get("message", "Foydalanuvchi topilmadi")
@@ -857,6 +1078,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             # Keyingi sahifaga o'tish (eslatma sahifasi)
             self._next_page_by_name('page_note')
+
+            # Warning text ni qo'llash
+            if self.warning_text:
+                self.set_warning_text(self.warning_text)
 
         except Exception as e:
             print(f"Candidate continue error: {e}")
