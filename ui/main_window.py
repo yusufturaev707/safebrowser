@@ -4,10 +4,11 @@ Bu fayl legacy main.py dan re-export qiladi va yangi strukturaga bridge vazifasi
 """
 import sys
 import os
+import time
 
 # Yangi strukturadan import
 from ui.styles import get_full_stylesheet, COLORS
-from ui.dialogs import InfoModal, ExitDialog, MonitorWarningModal
+from ui.dialogs import InfoModal, ExitDialog, MonitorWarningModal, ToastManager, FaceWarningModal
 from ui.generated_ui import Ui_MainWindow
 from workers import (
     CameraCheckerWorker,
@@ -45,7 +46,7 @@ except ImportError:
     KEYBOARD_AVAILABLE = False
     print("keyboard moduli mavjud emas - tugmalarni bloklash ishlamaydi")
 
-from PyQt6.QtCore import Qt, QUrl, QRegularExpression, pyqtSlot
+from PyQt6.QtCore import Qt, QUrl, QRegularExpression, pyqtSlot, QTimer
 from PyQt6.QtGui import (
     QPixmap, QRegularExpressionValidator, QImage, QPainter,
     QColor, QFont, QPen, QBrush, QLinearGradient, QAction, QKeySequence
@@ -289,7 +290,6 @@ class CameraOverlayWidget(QFrame):
 
     def _start_pulse_animation(self):
         """Recording indicator pulsatsiya animatsiyasi"""
-        from PyQt6.QtCore import QTimer
         self._pulse_timer = QTimer(self)
         self._pulse_timer.timeout.connect(self._pulse_dot)
         self._pulse_timer.start(800)  # 800ms interval
@@ -515,6 +515,32 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.admin_password = config.admin_password
         self.base_url = config.api_base_url
 
+        # Face Monitoring Strategy Configuration (config.ini dan)
+        self.face_detection_interval = config.face_detection_interval
+        self.face_detection_max_fail = config.face_detection_max_fail
+        self.face_identification_interval = config.face_identification_interval
+        self.face_identification_max_fail = config.face_identification_max_fail
+        self.warning_timeout = config.face_warning_timeout
+
+        # Face Monitoring State
+        self.face_detection_fail_count = 0
+        self.face_identification_fail_count = 0
+        self.last_face_detection_time = None
+        self.last_face_identification_time = None
+        self.face_warning_shown = False
+
+        # Face Monitoring Mode (faqat bittasi active bo'ladi)
+        # "detection" - yuz yo'q, detection warning active
+        # "identification" - yuz bor lekin tanilmadi, identification warning active
+        # "ok" - hammasi yaxshi
+        self.face_monitoring_mode = "ok"
+        self.current_has_face = False
+        self.current_is_verified = False
+
+        # Toast Manager
+        self.toast_manager = None
+        self.face_warning_modal = None
+
     def _init_workers(self):
         """Worker'larni boshlash"""
         self.checker_internet_worker = InternetCheckWorker(interval=5)
@@ -562,6 +588,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Legacy camera_face_label reference (for backward compatibility)
         self.camera_face_label = self.camera_overlay
+
+        # Toast Manager - yengil ogohlantirishlar uchun
+        self.toast_manager = ToastManager(self)
+
+        # Face Warning Modal - jiddiy ogohlantirishlar uchun
+        self.face_warning_modal = FaceWarningModal(
+            parent=self,
+            warning_type="face_not_detected",
+            timeout_seconds=self.warning_timeout
+        )
+        self.face_warning_modal.acknowledged.connect(self._on_face_warning_acknowledged)
+        self.face_warning_modal.timeout_reached.connect(self._on_face_warning_timeout)
 
         # ID card design
         self._setup_id_card()
@@ -1564,15 +1602,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             # Barcha monitoring worker'larni to'xtatish
             self._stop_monitor_checking()
-
-            if self.face_detector_worker and self.face_detector_worker.isRunning():
-                self.face_detector_worker.stop()
-
-            if self.camera1_worker and self.camera1_worker.isRunning():
-                self.camera1_worker.stop()
+            self._stop_face_monitoring()
 
             if self.screen_recorder_worker and self.screen_recorder_worker.isRunning():
                 self.screen_recorder_worker.stop()
+
+            # Toast'larni tozalash
+            if self.toast_manager:
+                self.toast_manager.clear_all()
 
             # Kamera overlay'ni yashirish
             if hasattr(self, 'camera_overlay'):
@@ -1603,14 +1640,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Return to PINFL page error: {e}")
 
     def _start_face_monitoring(self):
-        """Test vaqtida yuzni kuzatishni boshlash"""
+        """
+        Test vaqtida yuzni kuzatishni boshlash
+
+        Yangi Strategiya:
+        1. Yuz YO'Q → Face Detection warning (Identification to'xtaydi)
+        2. Yuz BOR, tanilMADI → Face Identification warning (Detection to'xtaydi)
+        3. Bir vaqtda IKKALASI ishlaMAYDI
+        """
         try:
             if self.app is None:
                 print("Face monitoring: Model yuklanmagan")
                 return
 
+            # Reset monitoring state
+            self._reset_face_monitoring_state()
+
             # Kamera widget'ini page_test ustida overlay qilish
-            # page_test widgetini topish
             page_test = None
             for i in range(self.stack.count()):
                 if self.stack.widget(i).objectName() == 'page_test':
@@ -1618,35 +1664,274 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     break
 
             if page_test:
-                # Camera overlay'ni page_test ning child qilish
                 self.camera_overlay.setParent(page_test)
                 self.camera_overlay.show()
                 self.camera_overlay.raise_()
-
-                # Sahifa to'liq yuklangandan keyin joylashni yangilash
-                from PyQt6.QtCore import QTimer
+                self.toast_manager.parent = page_test
                 QTimer.singleShot(100, self._update_camera_overlay_position)
 
-            # Face detector worker
+            # Face Detection Timer - yuz borligini tekshirish
+            self.face_detection_timer = QTimer(self)
+            self.face_detection_timer.timeout.connect(self._check_face_status)
+            self.face_detection_timer.start(self.face_detection_interval * 1000)
+
+            # Face Identification Timer - yuzni tanib olish
+            self.face_identification_timer = QTimer(self)
+            self.face_identification_timer.timeout.connect(self._check_face_identity)
+            # Boshida to'xtatib turamiz - faqat yuz aniqlanganda ishga tushadi
+            self.face_identification_timer.stop()
+
+            # Face detector worker (continuous) - InsightFace orqali yengil detect
             if self.face_detector_worker is None or not self.face_detector_worker.isRunning():
                 self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=0)
                 self.face_detector_worker.face_detected.connect(self._on_monitoring_face_detected)
                 self.face_detector_worker.start()
 
-            # Camera1Worker - periodic face check
+            # Camera1Worker - face identification (embedding comparison)
             from workers import Camera1Worker
             self.camera1_worker = Camera1Worker(app=self.app)
             self.camera1_worker.result_ready.connect(self._on_monitoring_result)
-            self.camera1_worker.set_face(
-                ps_embedding=self.ps_embedding,
-                score=self.score,
-                check_timer=self.timer_face_id or 10
-            )
-            # Worker allaqachon set_face() da ishga tushadi, alohida start() kerak emas
-            print(f"Face monitoring boshlandi (interval: {self.timer_face_id}s)")
+
+            print(f"Face monitoring boshlandi:")
+            print(f"  - Detection interval: {self.face_detection_interval}s")
+            print(f"  - Detection max fail: {self.face_detection_max_fail}")
+            print(f"  - Identification interval: {self.face_identification_interval}s")
+            print(f"  - Identification max fail: {self.face_identification_max_fail}")
+            print(f"  - Warning timeout: {self.warning_timeout}s")
+            print(f"  - Mode: detection (boshlanish)")
 
         except Exception as e:
             print(f"Start face monitoring error: {e}")
+
+    def _reset_face_monitoring_state(self):
+        """Face monitoring holatini qayta tiklash"""
+        self.face_detection_fail_count = 0
+        self.face_identification_fail_count = 0
+        self.face_warning_shown = False
+        self.face_monitoring_mode = "ok"
+        self.current_has_face = False
+        self.current_is_verified = False
+        self.last_face_detection_time = time.time()
+        self.last_face_identification_time = time.time()
+
+    def _stop_face_monitoring(self):
+        """Face monitoring'ni to'xtatish"""
+        try:
+            if hasattr(self, 'face_detection_timer') and self.face_detection_timer:
+                self.face_detection_timer.stop()
+
+            if hasattr(self, 'face_identification_timer') and self.face_identification_timer:
+                self.face_identification_timer.stop()
+
+            if hasattr(self, 'modal_timer') and self.modal_timer:
+                self.modal_timer.stop()
+
+            if self.face_detector_worker and self.face_detector_worker.isRunning():
+                self.face_detector_worker.stop()
+
+            if self.camera1_worker and self.camera1_worker.isRunning():
+                self.camera1_worker.stop()
+
+            print("Face monitoring to'xtatildi")
+        except Exception as e:
+            print(f"Stop face monitoring error: {e}")
+
+    def _check_face_status(self):
+        """
+        Face Detection tekshiruvi
+        Faqat yuz YO'Q bo'lganda ishlaydi
+        """
+        try:
+            # Agar identification mode da bo'lsa - detection to'xtab turadi
+            if self.face_monitoring_mode == "identification":
+                return
+
+            if not self.current_has_face:
+                self.face_detection_fail_count += 1
+                print(f"[DETECTION] Yuz yo'q: {self.face_detection_fail_count}/{self.face_detection_max_fail}")
+
+                if self.face_detection_fail_count >= self.face_detection_max_fail:
+                    self.face_monitoring_mode = "detection"
+                    self._show_face_warning_toast(
+                        "Yuz aniqlanmadi! Iltimos, kameraga qarang.",
+                        warning_type="detection"
+                    )
+                    self.face_detection_fail_count = 0
+            else:
+                # Yuz aniqlandi - fail count kamaytirish
+                if self.face_detection_fail_count > 0:
+                    self.face_detection_fail_count -= 1
+
+                # Yuz aniqlandi - identification timer'ni yoqish
+                if not self.face_identification_timer.isActive():
+                    self.face_identification_timer.start(self.face_identification_interval * 1000)
+                    print("[DETECTION] Yuz aniqlandi - Identification timer yoqildi")
+
+        except Exception as e:
+            print(f"Check face status error: {e}")
+
+    def _check_face_identity(self):
+        """
+        Face Identification tekshiruvi
+        Faqat yuz BOR, lekin tanilMAGAN bo'lganda ishlaydi
+        """
+        try:
+            # Agar detection mode da bo'lsa - identification to'xtab turadi
+            if self.face_monitoring_mode == "detection":
+                return
+
+            # Agar yuz yo'q bo'lsa - identification to'xtatib, detection ga o'tish
+            if not self.current_has_face:
+                self.face_identification_timer.stop()
+                self.face_identification_fail_count = 0
+                print("[IDENTIFICATION] Yuz yo'q - Detection mode ga qaytish")
+                return
+
+            if not self.current_is_verified:
+                self.face_identification_fail_count += 1
+                print(f"[IDENTIFICATION] Tanilmadi: {self.face_identification_fail_count}/{self.face_identification_max_fail}")
+
+                if self.face_identification_fail_count >= self.face_identification_max_fail:
+                    self.face_monitoring_mode = "identification"
+                    self._show_face_warning_toast(
+                        f"Yuz tanilmadi! {self.warning_timeout} soniya ichida javob bering.",
+                        warning_type="identification",
+                        show_modal_after=True
+                    )
+                    self.face_identification_fail_count = 0
+            else:
+                # Yuz tanilib - fail count kamaytirish
+                if self.face_identification_fail_count > 0:
+                    self.face_identification_fail_count -= 1
+
+                # Hammasi yaxshi
+                if self.face_monitoring_mode != "ok":
+                    self.face_monitoring_mode = "ok"
+                    print("[IDENTIFICATION] Yuz tanilib - OK mode")
+
+        except Exception as e:
+            print(f"Check face identity error: {e}")
+
+    def _show_face_warning_toast(self, message: str, warning_type: str = "detection", show_modal_after: bool = False):
+        """
+        Yengil toast ogohlantirish ko'rsatish
+        warning_type: "detection" yoki "identification"
+        """
+        try:
+            page_test = None
+            for i in range(self.stack.count()):
+                if self.stack.widget(i).objectName() == 'page_test':
+                    page_test = self.stack.widget(i)
+                    break
+
+            if page_test and self.toast_manager:
+                toast_type = "warning" if warning_type == "detection" else "error"
+                toast = self.toast_manager.show_toast(
+                    message=message,
+                    toast_type=toast_type,
+                    duration=5000 if not show_modal_after else 0,
+                    position="top-right"
+                )
+
+                if show_modal_after:
+                    self.face_warning_shown = True
+                    self.modal_timer = QTimer(self)
+                    self.modal_timer.setSingleShot(True)
+                    self.modal_timer.timeout.connect(
+                        lambda: self._show_face_warning_modal(warning_type)
+                    )
+                    self.modal_timer.start(self.warning_timeout * 1000)
+                    toast.clicked.connect(self._on_toast_acknowledged)
+
+            print(f"[{warning_type.upper()}] Toast: {message}")
+
+        except Exception as e:
+            print(f"Show face warning toast error: {e}")
+
+    def _on_toast_acknowledged(self):
+        """Toast bosilganda - modal'ni bekor qilish va mode reset"""
+        try:
+            if hasattr(self, 'modal_timer') and self.modal_timer:
+                self.modal_timer.stop()
+            self.face_warning_shown = False
+            self.face_monitoring_mode = "ok"
+            self.toast_manager.clear_all()
+            print("Toast acknowledged - mode reset to OK")
+        except Exception as e:
+            print(f"Toast acknowledged error: {e}")
+
+    def _show_face_warning_modal(self, warning_type: str = "detection"):
+        """Face warning modal ko'rsatish"""
+        try:
+            if not self.face_warning_shown:
+                return
+
+            if self.toast_manager:
+                self.toast_manager.clear_all()
+
+            # Modal xabarini warning turiga qarab o'zgartirish
+            if warning_type == "detection":
+                message = "Yuzingiz kamerada aniqlanmadi!\n\nIltimos, yuzingizni kameraga to'g'ri ko'rsating."
+                modal_type = "face_not_detected"
+            else:
+                message = "Yuzingiz tanilmadi!\n\nIltimos, yoritilgan joyda turing va yuzingizni to'g'ri ko'rsating."
+                modal_type = "face_mismatch"
+
+            self.face_warning_modal.warning_type = modal_type
+            self.face_warning_modal.set_message(message)
+            self.face_warning_modal.exec()
+
+            # Modal result
+            if self.face_warning_modal.was_timeout():
+                self._send_warning_to_server(
+                    f"{'Yuz aniqlanmadi' if warning_type == 'detection' else 'Yuz tanilmadi'} - reaksiya berilmadi"
+                )
+
+            # Mode reset
+            self.face_warning_shown = False
+            self.face_monitoring_mode = "ok"
+
+        except Exception as e:
+            print(f"Show face warning modal error: {e}")
+
+    def _on_face_warning_acknowledged(self):
+        """Foydalanuvchi "Tushundim" bosganda"""
+        try:
+            self.face_warning_shown = False
+            self.face_monitoring_mode = "ok"
+            print("Face warning acknowledged - mode reset to OK")
+        except Exception as e:
+            print(f"Face warning acknowledged error: {e}")
+
+    def _on_face_warning_timeout(self):
+        """Modal timeout - serverga warning yuborish"""
+        try:
+            self.face_warning_shown = False
+            self._send_warning_to_server("Yuz aniqlanmadi/tanilmadi - 30s reaksiya berilmadi")
+        except Exception as e:
+            print(f"Face warning timeout error: {e}")
+
+    def _send_warning_to_server(self, message: str):
+        """Serverga warning yuborish"""
+        try:
+            if not self.im:
+                print("Warning yuborilmadi: PINFL mavjud emas")
+                return
+
+            api_client = APIClient(base_url=self.base_url)
+            result = api_client.send_warning(
+                pinfl=self.im,
+                message=message,
+                warning_type="face_monitoring_failed"
+            )
+
+            if result.get("status"):
+                print(f"Warning serverga yuborildi: {message}")
+            else:
+                print(f"Warning yuborishda xatolik: {result.get('message')}")
+
+        except Exception as e:
+            print(f"Send warning to server error: {e}")
 
     @pyqtSlot(object)
     def _on_monitoring_face_detected(self, data: dict):
@@ -1656,12 +1941,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             cropped_face = data.get("crop_face")
             has_face = data.get("has_face", False)
 
+            # Face detection holatini yangilash (yangi state variable)
+            self.current_has_face = has_face
+            self.last_face_detected = has_face
+
             # Kamera tasvirini UI da ko'rsatish
             if qt_image and not qt_image.isNull():
                 pixmap = QPixmap.fromImage(qt_image)
                 self.camera_overlay.setPixmap(pixmap)
 
-            # Agar Camera1Worker mavjud bo'lsa, yuzni yuborish
+            # Agar yuz aniqlangan bo'lsa va Camera1Worker mavjud bo'lsa, yuzni yuborish
             if has_face and cropped_face is not None and hasattr(self, 'camera1_worker'):
                 if self.camera1_worker and self.camera1_worker.isRunning():
                     rgb_face = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2RGB)
@@ -1670,6 +1959,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         cropped_face=rgb_face,
                         score=self.score
                     )
+
+            # Agar yuz yo'q bo'lsa, identification natijasini ham reset qilish
+            if not has_face:
+                self.current_is_verified = False
 
         except Exception as e:
             print(f"Monitoring face detected error: {e}")
@@ -1681,10 +1974,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             is_verified = data.get("is_verified", False)
             message = data.get("message", "")
 
+            # Face identification holatini yangilash (yangi state variable)
+            self.current_is_verified = is_verified
+            self.last_face_identified = is_verified
+
             if not is_verified:
-                # Ogohlantirish - boshqa odam yoki yuz yo'q
                 print(f"Face monitoring warning: {message}")
-                # Bu yerda serverga log yuborish mumkin
 
         except Exception as e:
             print(f"Monitoring result error: {e}")

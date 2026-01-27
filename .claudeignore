@@ -1,0 +1,63 @@
+# --- Version Control ---
+.git/
+.gitignore
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Computer Vision & AI Models (Eng muhimi) ---
+# Claude bu binary modellarni o'qiy olmaydi, shuning uchun ularni chetlab o'tish kerak
+*.onnx
+*.pb
+*.h5
+*.tflite
+*.weights
+*.pt
+*.pth
+# InsightFace yoki MediaPipe yuklab olgan modellar papkasi (agar loyihada bo'lsa)
+models/
+insighface_models/
+
+# --- Media Files ---
+# Proctoring testi davomida olingan rasm va videolar
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.avi
+*.mov
+*.webm
+
+# --- Frontend / Node.js (Agar bo'lsa) ---
+node_modules/
+.next/
+.nuxt/
+out/
+build/
+.cache/
+package-lock.json
+yarn.lock
+
+# --- Logs & Temp ---
+*.log
+logs/
+temp/
+tmp/
+
+# --- System & IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

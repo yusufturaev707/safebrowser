@@ -102,3 +102,26 @@ class APIClient:
             "data": None,
             "message": result.get("message", "Foydalanuvchi topilmadi")
         }
+
+    def send_warning(self, pinfl: str, message: str, warning_type: str = "face_not_detected") -> Dict[str, Any]:
+        """
+        Serverga ogohlantirish yuborish
+
+        Args:
+            pinfl: Nomzod JSHSHIR raqami
+            message: Ogohlantirish xabari
+            warning_type: Ogohlantirish turi (face_not_detected, face_mismatch, etc.)
+        """
+        try:
+            result = self.post(
+                "candidate-warning/",
+                json={
+                    "candidate": pinfl,
+                    "message": message,
+                    "warning_type": warning_type
+                }
+            )
+            return result
+        except Exception as e:
+            print(f"Send warning error: {e}")
+            return {"status": False, "message": str(e)}
