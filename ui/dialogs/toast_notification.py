@@ -144,7 +144,7 @@ class ToastNotification(QWidget):
                 color: {style['text']};
                 font-size: 14px;
                 font-weight: 500;
-                font-family: 'Segoe UI', 'Roboto', sans-serif;
+                font-family: 'Inter', sans-serif;
                 background: transparent;
             }}
         """)

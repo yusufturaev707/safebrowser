@@ -137,9 +137,10 @@ def create_id_card_pixmap(width: int = 320, height: int = 200) -> QPixmap:
     return pixmap
 
 
-def create_lock_icon(width: int = 70, height: int = 70) -> QPixmap:
+def create_lock_icon(width: int = 70, height: int = 70, color: str = None) -> QPixmap:
     """
     Qulf ikonkasi chizish - katta va aniq
+    color: hex rang kodi (masalan "#3AA985" - mint yashil)
     """
     pixmap = QPixmap(width, height)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -149,42 +150,53 @@ def create_lock_icon(width: int = 70, height: int = 70) -> QPixmap:
 
     # Markazlash uchun offset
     cx = width // 2
-    cy = height // 2 + 5
+    cy = height // 2 + 3
 
-    # Qulf tanasi - kattaroq
-    body_w = 40
-    body_h = 32
-    body_x = cx - body_w // 2
-    body_y = cy - 5
+    # Rang tanlash
+    if color:
+        main_color = QColor(color)
+        # Darker variant for gradient
+        dark_color = main_color.darker(120)
+        border_color = main_color.darker(150)
+        hole_color = main_color.darker(200)
+    else:
+        main_color = QColor(217, 119, 6)
+        dark_color = QColor(180, 83, 9)
+        border_color = QColor(120, 53, 15)
+        hole_color = QColor(68, 51, 17)
 
-    # Gradient rangli qulf tanasi
-    body_gradient = QLinearGradient(body_x, body_y, body_x, body_y + body_h)
-    body_gradient.setColorAt(0, QColor(217, 119, 6))
-    body_gradient.setColorAt(1, QColor(180, 83, 9))
-
-    painter.setBrush(QBrush(body_gradient))
-    painter.setPen(QPen(QColor(120, 53, 15), 2))
-    painter.drawRoundedRect(body_x, body_y, body_w, body_h, 8, 8)
-
-    # Qulf halqasi - qalinroq
-    pen = QPen(QColor(217, 119, 6))
-    pen.setWidth(8)
+    # Qulf halqasi - outline style (HTML ga mos)
+    pen = QPen(main_color)
+    pen.setWidth(int(width * 0.12))  # Proporsional qalinlik
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     painter.setPen(pen)
     painter.setBrush(Qt.BrushStyle.NoBrush)
 
-    arc_w = 26
-    arc_h = 32
+    arc_w = int(width * 0.45)
+    arc_h = int(height * 0.42)
     arc_x = cx - arc_w // 2
-    arc_y = cy - 30
+    arc_y = cy - int(height * 0.38)
     painter.drawArc(arc_x, arc_y, arc_w, arc_h, 0, 180 * 16)
 
-    # Kalit teshigi
-    painter.setBrush(QBrush(QColor(68, 51, 17)))
-    painter.setPen(Qt.PenStyle.NoPen)
-    hole_r = 6
-    painter.drawEllipse(cx - hole_r, body_y + 8, hole_r * 2, hole_r * 2)
-    painter.drawRect(cx - 3, body_y + 16, 6, 10)
+    # Qulf tanasi - outline style (HTML ga mos)
+    body_w = int(width * 0.6)
+    body_h = int(height * 0.45)
+    body_x = cx - body_w // 2
+    body_y = cy - int(height * 0.05)
+
+    pen.setWidth(int(width * 0.12))
+    painter.setPen(pen)
+    # Ichki fill - shaffof rang bilan
+    painter.setBrush(QBrush(QColor(main_color.red(), main_color.green(), main_color.blue(), 20)))
+    painter.drawRoundedRect(body_x, body_y, body_w, body_h, int(width * 0.12), int(width * 0.12))
+
+    # Kalit teshigi (vertikal chiziq)
+    pen.setWidth(int(width * 0.12))
+    painter.setPen(pen)
+    key_x = cx
+    key_y1 = body_y + int(body_h * 0.35)
+    key_y2 = body_y + int(body_h * 0.7)
+    painter.drawLine(key_x, key_y1, key_x, key_y2)
 
     painter.end()
     return pixmap

@@ -41,7 +41,7 @@ QStackedWidget {
 }
 
 QWidget {
-    font-family: "Segoe UI", "Inter", -apple-system, sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 14px;
     color: #1e293b;
 }

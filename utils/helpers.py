@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 from PyQt6.QtGui import QImage
 from insightface.app import FaceAnalysis
+from utils.logger import info, error
 
 
 def init_face_analyzer(det_size: tuple = (640, 640), gpu_id: int = -1):
@@ -39,10 +40,10 @@ def init_face_analyzer(det_size: tuple = (640, 640), gpu_id: int = -1):
         )
         app.prepare(ctx_id=gpu_id, det_size=det_size)
 
-        print(f"FaceAnalysis initialized: det_size={det_size}, gpu_id={gpu_id}")
+        info(f"FaceAnalysis initialized: det_size={det_size}, gpu_id={gpu_id}")
         return app
     except Exception as e:
-        print(f"FaceAnalysis init error: {e}")
+        error(f"FaceAnalysis init error: {e}")
         app = FaceAnalysis(
             providers=['CPUExecutionProvider'],
             root=models_path

@@ -3,6 +3,10 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 
 from ui.main_window import MainWindow
+from utils.logger import get_logger, info, error
+
+# Logger ni ishga tushirish
+logger = get_logger()
 
 
 class SafeBrowserApp:
@@ -13,21 +17,29 @@ class SafeBrowserApp:
 
     def run(self) -> int:
         """Dasturni ishga tushirish"""
-        # High DPI scaling
-        QApplication.setHighDpiScaleFactorRoundingPolicy(
-            Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
-        )
+        try:
+            info("SafeBrowser ishga tushmoqda...")
 
-        self.app = QApplication(self.argv)
-        self.app.setApplicationName("SafeBrowser")
-        self.app.setApplicationVersion("1.0.0")
-        self.app.setOrganizationName("SafeBrowser Team")
+            # High DPI scaling
+            QApplication.setHighDpiScaleFactorRoundingPolicy(
+                Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+            )
 
-        # Main window
-        self.main_window = MainWindow()
-        self.main_window.show()
+            self.app = QApplication(self.argv)
+            self.app.setApplicationName("SafeBrowser")
+            self.app.setApplicationVersion("1.0.0")
+            self.app.setOrganizationName("SafeBrowser Team")
 
-        return self.app.exec()
+            # Main window
+            self.main_window = MainWindow()
+            self.main_window.show()
+
+            info("SafeBrowser muvaffaqiyatli ishga tushdi")
+            return self.app.exec()
+
+        except Exception as e:
+            error(f"SafeBrowser ishga tushishda xatolik: {e}")
+            raise
 
     @staticmethod
     def create_app(argv: list = None) -> 'SafeBrowserApp':

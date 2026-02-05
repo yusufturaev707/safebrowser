@@ -6,6 +6,7 @@ Cross-platform qo'llab-quvvatlash
 import numpy as np
 from typing import Optional, Tuple, List
 from insightface.app import FaceAnalysis
+from utils.logger import info, debug, warning, error
 
 
 class FaceAnalyzer:
@@ -26,7 +27,7 @@ class FaceAnalyzer:
 
         # Cross-platform models directory
         models_path = str(get_models_dir())
-        print(f"InsightFace models path: {models_path}")
+        debug(f"InsightFace models path: {models_path}")
 
         try:
             if self.gpu_id >= 0:
@@ -42,11 +43,11 @@ class FaceAnalyzer:
             self._app.prepare(ctx_id=self.gpu_id, det_size=self.det_size)
 
             self._initialized = True
-            print(f"FaceAnalyzer initialized: det_size={self.det_size}, gpu_id={self.gpu_id}")
+            info(f"FaceAnalyzer initialized: det_size={self.det_size}, gpu_id={self.gpu_id}")
             return True
 
         except Exception as e:
-            print(f"FaceAnalyzer init error: {e}")
+            error(f"FaceAnalyzer init error: {e}")
             # Fallback - CPU only
             try:
                 self._app = FaceAnalysis(
@@ -57,7 +58,7 @@ class FaceAnalyzer:
                 self._initialized = True
                 return True
             except Exception as fallback_error:
-                print(f"Fallback init error: {fallback_error}")
+                error(f"Fallback init error: {fallback_error}")
                 return False
 
     @property
@@ -103,7 +104,7 @@ class FaceAnalyzer:
             return faces if faces else []
 
         except Exception as e:
-            print(f"Face detection error: {e}")
+            error(f"Face detection error: {e}")
             return []
 
     def get_embedding(self, image: np.ndarray) -> Optional[np.ndarray]:

@@ -4,6 +4,7 @@ Qo'shimcha monitorlarni aniqlash (cheating prevention)
 """
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtGui import QGuiApplication
+from utils.logger import error
 
 
 class MonitorWorker(QThread):
@@ -23,7 +24,7 @@ class MonitorWorker(QThread):
             screens = QGuiApplication.screens()
             return len(screens) > 1
         except Exception as e:
-            print(f"Monitor check error: {e}")
+            error(f"Monitor check error: {e}")
             return False
 
     def run(self):

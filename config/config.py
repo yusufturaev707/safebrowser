@@ -6,6 +6,7 @@ import os
 import configparser
 from pathlib import Path
 from typing import Optional
+from utils.logger import info, warning, error
 
 
 # Paths
@@ -31,12 +32,12 @@ class Config:
         # Fayl mavjud bo'lsa, o'qish
         if CONFIG_FILE.exists():
             try:
-                self._config.read(CONFIG_FILE, encoding='utf-8')  # ✅ encoding qo'shing
-                print(f"✅ Config yuklandi: {CONFIG_FILE}")
+                self._config.read(CONFIG_FILE, encoding='utf-8')
+                info(f"Config yuklandi: {CONFIG_FILE}")
             except Exception as e:
-                print(f"❌ Config yuklashda xato: {e}")
+                error(f"Config yuklashda xato: {e}")
         else:
-            print(f"⚠️ Config fayl topilmadi: {CONFIG_FILE}")
+            warning(f"Config fayl topilmadi: {CONFIG_FILE}")
             self._create_default_config()  # ✅ Default yaratish
 
     def _create_default_config(self):
@@ -82,9 +83,9 @@ class Config:
             CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 self._config.write(f)
-            print(f"✅ Config saqlandi: {CONFIG_FILE}")
+            info(f"Config saqlandi: {CONFIG_FILE}")
         except Exception as e:
-            print(f"❌ Config saqlashda xato: {e}")
+            error(f"Config saqlashda xato: {e}")
 
     # Shortcut properties
     @property

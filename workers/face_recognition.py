@@ -13,6 +13,7 @@ from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QMutexLocker
 
 from utils.helpers import cosine_similarity, get_percentage
 from config.config import config
+from utils.logger import debug, info, warning, error
 
 
 def add_padding_to_face(face_image: np.ndarray, padding_ratio: float = 0.5) -> np.ndarray:
@@ -176,10 +177,10 @@ class CPUOptimizedFaceIdWorker(QThread):
                 faces = self.app.get(padded_small)
 
             if not faces:
-                print(f"[GetEmbedding] Yuz topilmadi! size={w}x{h}")
+                debug(f"[GetEmbedding] Yuz topilmadi! size={w}x{h}")
                 return None, "Yuz topilmadi"
 
-            print(f"[GetEmbedding] OK: method={method_used}, size={w}x{h}")
+            debug(f"[GetEmbedding] OK: method={method_used}, size={w}x{h}")
             return faces[0].embedding, None
         except Exception as e:
             return None, str(e)
@@ -224,7 +225,7 @@ class CPUOptimizedFaceIdWorker(QThread):
             similarity = cosine_similarity(ps_embedding, live_embedding)
             similarity_percent = get_percentage(similarity, threshold=0.5)
             is_match = 0 < score <= similarity_percent
-            print(f"Percentage: {similarity_percent}%, Required: {score}%")
+            debug(f"Percentage: {similarity_percent}%, Required: {score}%")
 
             self.result_ready.emit({
                 "status": "success",
@@ -261,7 +262,7 @@ class CPUOptimizedFaceIdWorker(QThread):
                 self.msleep(200)
 
             except Exception as e:
-                print(f"CPUOptimizedFaceIdWorker error: {e}")
+                debug(f"CPUOptimizedFaceIdWorker error: {e}")
                 self.msleep(500)
 
 
@@ -333,10 +334,10 @@ class FaceIdStaffWorker(QThread):
                 faces = self.app.get(padded_small)
 
             if not faces:
-                print(f"[StaffVerify] Yuz aniqlanmadi! size={w}x{h}")
+                debug(f"[StaffVerify] Yuz aniqlanmadi! size={w}x{h}")
                 return {"is_verified": False, "message": "Yuz aniqlanmadi"}
 
-            print(f"[StaffVerify] OK: method={method_used}, size={w}x{h}")
+            debug(f"[StaffVerify] OK: method={method_used}, size={w}x{h}")
             embedding = faces[0].embedding.tolist()
 
             response = requests.post(
@@ -461,17 +462,17 @@ class Camera1Worker(QThread):
                 faces = self.app.get(padded_small)
 
             if not faces:
-                print(f"[Camera1Verify] Yuz topilmadi! size={w}x{h}")
+                debug(f"[Camera1Verify] Yuz topilmadi! size={w}x{h}")
                 return {"is_verified": False, "message": "Yuz topilmadi"}
 
-            print(f"[Camera1Verify] OK: method={method_used}, size={w}x{h}")
+            debug(f"[Camera1Verify] OK: method={method_used}, size={w}x{h}")
 
             live_embedding = faces[0].embedding
 
             similarity = cosine_similarity(live_embedding, ps_embedding)
             similarity_percent = get_percentage(similarity, threshold=0.5)
-            print(f"Similarity_percent: {similarity_percent}%")
-            print(f"Required score: {self.score}%")
+            debug(f"Similarity_percent: {similarity_percent}%")
+            debug(f"Required score: {self.score}%")
 
             is_match = 0 < self.score <= similarity_percent
 
@@ -507,5 +508,5 @@ class Camera1Worker(QThread):
                 self.msleep(100)
 
             except Exception as e:
-                print(f"Camera1Worker error: {e}")
+                debug(f"Camera1Worker error: {e}")
                 self.msleep(500)

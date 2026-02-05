@@ -10,6 +10,7 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 from PyQt6.QtCore import QThread
+from utils.logger import debug, info, warning, error
 
 # Platform-specific screenshot
 try:
@@ -17,7 +18,7 @@ try:
     PYAUTOGUI_AVAILABLE = True
 except ImportError:
     PYAUTOGUI_AVAILABLE = False
-    print("pyautogui mavjud emas - ekran yozish ishlamaydi")
+    warning("pyautogui mavjud emas - ekran yozish ishlamaydi")
 
 # Linux uchun alternative
 try:
@@ -97,30 +98,30 @@ class ScreenRecorderWorker(QThread):
             # Linux: mss afzal (X11/Wayland muammolari kamroq)
             if MSS_AVAILABLE:
                 self._use_mss = True
-                print("Linux: mss ishlatiladi")
+                info("Linux: mss ishlatiladi")
             elif PYAUTOGUI_AVAILABLE:
                 self._use_mss = False
-                print("Linux: pyautogui ishlatiladi (X11 talab qilinadi)")
+                info("Linux: pyautogui ishlatiladi (X11 talab qilinadi)")
             else:
-                print("Linux: Ekran yozish uchun mss yoki pyautogui kerak")
+                warning("Linux: Ekran yozish uchun mss yoki pyautogui kerak")
 
         elif _is_macos():
             # macOS: pyautogui yaxshi ishlaydi, lekin permissions kerak
             if PYAUTOGUI_AVAILABLE:
                 self._use_mss = False
-                print("macOS: pyautogui ishlatiladi (Screen Recording permission kerak)")
+                info("macOS: pyautogui ishlatiladi (Screen Recording permission kerak)")
             elif MSS_AVAILABLE:
                 self._use_mss = True
-                print("macOS: mss ishlatiladi")
+                info("macOS: mss ishlatiladi")
 
         else:
             # Windows: pyautogui yaxshi ishlaydi
             if PYAUTOGUI_AVAILABLE:
                 self._use_mss = False
-                print("Windows: pyautogui ishlatiladi")
+                info("Windows: pyautogui ishlatiladi")
             elif MSS_AVAILABLE:
                 self._use_mss = True
-                print("Windows: mss ishlatiladi")
+                info("Windows: mss ishlatiladi")
 
     def _get_screen_size(self) -> tuple:
         """Ekran o'lchamini olish"""
@@ -154,11 +155,11 @@ class ScreenRecorderWorker(QThread):
     def run(self):
         """Asosiy recording loop"""
         if not PYAUTOGUI_AVAILABLE and not MSS_AVAILABLE:
-            print(f"Screen recording not available on {_get_platform_name()}")
+            warning(f"Screen recording not available on {_get_platform_name()}")
             return
 
-        print(f"Screen recording started: {self.filename}")
-        print(f"Platform: {_get_platform_name()}, Method: {'mss' if self._use_mss else 'pyautogui'}")
+        info(f"Screen recording started: {self.filename}")
+        info(f"Platform: {_get_platform_name()}, Method: {'mss' if self._use_mss else 'pyautogui'}")
 
         try:
             screen_size = self._get_screen_size()
@@ -186,10 +187,10 @@ class ScreenRecorderWorker(QThread):
                 time.sleep(1 / self.fps)
 
             out.release()
-            print(f"Screen recording stopped: {self.filename}")
+            info(f"Screen recording stopped: {self.filename}")
 
         except Exception as e:
-            print(f"Screen recording error: {e}")
+            error(f"Screen recording error: {e}")
 
     def stop(self):
         self._recording = False

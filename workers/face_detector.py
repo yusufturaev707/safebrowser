@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QMutexLocker
 from PyQt6.QtGui import QImage
+from utils.logger import info, debug, warning, error
 
 
 class FaceDetectorWorker(QThread):
@@ -49,7 +50,7 @@ class FaceDetectorWorker(QThread):
         with QMutexLocker(self._lock):
             self._running = False
         self.wait()
-        print("Face Detector Worker stopped")
+        info("Face Detector Worker stopped")
 
     def _init_camera(self) -> bool:
         """Kamerani ishga tushirish (cross-platform)"""
@@ -65,13 +66,13 @@ class FaceDetectorWorker(QThread):
             )
 
             if self.cap is None or not self.cap.isOpened():
-                print(f"Camera {self.camera_index} ochilmadi ({get_platform_name()})")
+                warning(f"Camera {self.camera_index} ochilmadi ({get_platform_name()})")
                 return False
 
-            print(f"Camera {self.camera_index} initialized ({get_platform_name()})")
+            info(f"Camera {self.camera_index} initialized ({get_platform_name()})")
             return True
         except Exception as e:
-            print(f"Camera init error: {e}")
+            error(f"Camera init error: {e}")
             return False
 
     def _detect_face_insightface(self, frame: np.ndarray):
@@ -132,7 +133,7 @@ class FaceDetectorWorker(QThread):
             face_area_ratio = (face_width * face_height) / (w * h)
 
             # Debug info
-            print(f"[FaceDetector] scale={scale_factor}, face_size={face_width}x{face_height}, ratio={face_area_ratio:.1%}")
+            debug(f"[FaceDetector] scale={scale_factor}, face_size={face_width}x{face_height}, ratio={face_area_ratio:.1%}")
 
             # Margin qo'shish - yaqin yuzlar uchun kichikroq margin
             if face_area_ratio > 0.4:  # Yuz juda yaqin (40% dan katta)
@@ -151,7 +152,7 @@ class FaceDetectorWorker(QThread):
             return (x1, y1, x2, y2), cropped_face
 
         except Exception as e:
-            print(f"Face detection error: {e}")
+            error(f"Face detection error: {e}")
             return None, None
 
     def _draw_face_box(self, frame: np.ndarray, box: tuple):
@@ -186,10 +187,10 @@ class FaceDetectorWorker(QThread):
     def run(self):
         """Asosiy thread loop"""
         if not self._init_camera():
-            print("Camera initialization failed")
+            error("Camera initialization failed")
             return
 
-        print("Face Detector Worker started")
+        info("Face Detector Worker started")
 
         while self.is_running():
             try:
@@ -222,9 +223,9 @@ class FaceDetectorWorker(QThread):
                 self.msleep(33)
 
             except Exception as e:
-                print(f"Frame processing error: {e}")
+                error(f"Frame processing error: {e}")
                 self.msleep(50)
 
         if self.cap:
             self.cap.release()
-        print("Face Detector Worker finished")
+        info("Face Detector Worker finished")

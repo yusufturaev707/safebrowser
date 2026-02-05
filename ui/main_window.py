@@ -9,7 +9,7 @@ import time
 # Yangi strukturadan import
 from ui.styles import get_full_stylesheet, COLORS
 from ui.dialogs import InfoModal, ExitDialog, MonitorWarningModal, ToastManager, FaceWarningModal
-from ui.generated_ui import Ui_MainWindow
+from ui.base_ui import Ui_MainWindow
 from workers import (
     CameraCheckerWorker,
     FaceDetectorWorker,
@@ -32,6 +32,10 @@ from utils.system import get_disk_with_most_free_space
 from services.api_client import APIClient
 from core.face_analyzer import FaceAnalyzer
 from utils.system import is_windows, is_linux, is_macos, get_platform_name
+from utils.logger import get_logger, info, debug, warning, error, exception
+
+# Logger
+log = get_logger()
 
 # PyQt6 imports
 import configparser
@@ -44,7 +48,7 @@ try:
     KEYBOARD_AVAILABLE = True
 except ImportError:
     KEYBOARD_AVAILABLE = False
-    print("keyboard moduli mavjud emas - tugmalarni bloklash ishlamaydi")
+    warning("keyboard moduli mavjud emas - tugmalarni bloklash ishlamaydi")
 
 from PyQt6.QtCore import Qt, QUrl, QRegularExpression, pyqtSlot, QTimer
 from PyQt6.QtGui import (
@@ -422,7 +426,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         macOS: Accessibility permissions talab qiladi
         """
         if not KEYBOARD_AVAILABLE:
-            print(f"Keyboard blocking not available on {get_platform_name()}")
+            debug(f"Keyboard blocking not available on {get_platform_name()}")
             return
 
         try:
@@ -433,8 +437,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     try:
                         keyboard.block_key(key)
                     except Exception as e:
-                        print(f"Cannot block {key}: {e}")
-                print("Windows klaviatura tugmalari bloklandi")
+                        debug(f"Cannot block {key}: {e}")
+                debug("Windows klaviatura tugmalari bloklandi")
 
             elif is_linux():
                 # Linux: faqat root da ishlaydi
@@ -453,22 +457,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             keyboard.block_key(key)
                         except Exception:
                             pass
-                    print("Linux klaviatura tugmalari bloklandi (root)")
+                    debug("Linux klaviatura tugmalari bloklandi (root)")
                 else:
-                    print("Linux: Tugmalarni bloklash uchun root kerak")
+                    debug("Linux: Tugmalarni bloklash uchun root kerak")
 
             elif is_macos():
                 # macOS: keyboard library cheklangan ishlaydi
                 # Accessibility permissions kerak
-                print("macOS: Tugmalarni bloklash qo'llab-quvvatlanmaydi")
+                debug("macOS: Tugmalarni bloklash qo'llab-quvvatlanmaydi")
                 # macOS da boshqa yechim - PyObjC ishlatish mumkin
                 # lekin bu qo'shimcha dependency talab qiladi
 
             else:
-                print(f"Platform {get_platform_name()}: Tugmalarni bloklash qo'llab-quvvatlanmaydi")
+                debug(f"Platform {get_platform_name()}: Tugmalarni bloklash qo'llab-quvvatlanmaydi")
 
         except Exception as e:
-            print(f"Block keys error: {e}")
+            debug(f"Block keys error: {e}")
 
     def _init_validators(self):
         """Input validatorlarini o'rnatish"""
@@ -564,17 +568,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _init_face_analyzer(self):
         """InsightFace modelini yuklash"""
         try:
-            print("InsightFace modeli yuklanmoqda...")
+            debug("InsightFace modeli yuklanmoqda...")
             self.face_analyzer = FaceAnalyzer(det_size=(640, 640), gpu_id=-1)
 
             if self.face_analyzer.initialize():
                 self.app = self.face_analyzer.app
-                print("InsightFace modeli muvaffaqiyatli yuklandi!")
+                debug("InsightFace modeli muvaffaqiyatli yuklandi!")
             else:
                 self.app = None
-                print("InsightFace modelini yuklashda xatolik!")
+                debug("InsightFace modelini yuklashda xatolik!")
         except Exception as e:
-            print(f"FaceAnalyzer init error: {e}")
+            debug(f"FaceAnalyzer init error: {e}")
             self.app = None
             self.face_analyzer = None
 
@@ -604,226 +608,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # ID card design
         self._setup_id_card()
 
-        # Page Note - Material Design styling
-        self._setup_page_note()
-
         # Load tests
         self._load_tests()
-
-    def _setup_page_note(self):
-        """Page Note - Material Design 3 stilini sozlash"""
-        try:
-            # Page background
-            self.page_note.setStyleSheet("""
-                QWidget#page_note {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                        stop:0 #f0f9ff,
-                        stop:0.5 #e0f2fe,
-                        stop:1 #f0f9ff);
-                }
-            """)
-
-            # Title - Material Design 3 styled with icon
-            self.label_not_title.setStyleSheet("""
-                QLabel {
-                    color: #dc2626;
-                    font-size: 38px;
-                    font-weight: 700;
-                    font-family: 'Segoe UI', 'Roboto', sans-serif;
-                    letter-spacing: 0.5px;
-                    padding: 24px;
-                    background: transparent;
-                }
-            """)
-            self.label_not_title.setText("Nomzodlarga eslatma!")
-
-            # ScrollArea - glassmorphism card style
-            self.scrollArea.setStyleSheet("""
-                QScrollArea {
-                    background: rgba(255, 255, 255, 0.97);
-                    border: 1px solid rgba(148, 163, 184, 0.25);
-                    border-radius: 28px;
-                    padding: 0px;
-                }
-                QScrollArea > QWidget > QWidget {
-                    background: transparent;
-                }
-                QScrollBar:vertical {
-                    background: rgba(241, 245, 249, 0.8);
-                    width: 12px;
-                    border-radius: 6px;
-                    margin: 8px 4px;
-                }
-                QScrollBar::handle:vertical {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #6C63FF, stop:1 #8B85FF);
-                    border-radius: 6px;
-                    min-height: 40px;
-                }
-                QScrollBar::handle:vertical:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #5A52E0, stop:1 #7A74E8);
-                }
-                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                    height: 0px;
-                }
-            """)
-
-            # ScrollArea content widget - layout bilan markazlashtirish
-            # Avval mavjud layoutni tozalash
-            if self.scrollAreaWidgetContents.layout():
-                old_layout = self.scrollAreaWidgetContents.layout()
-                while old_layout.count():
-                    old_layout.takeAt(0)
-
-            # Yangi VBox layout yaratish
-            content_layout = QVBoxLayout(self.scrollAreaWidgetContents)
-            content_layout.setContentsMargins(40, 30, 40, 30)
-            content_layout.setSpacing(0)
-            content_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            # Warning text label ni layoutga qo'shish
-            self.label_warning_text.setParent(self.scrollAreaWidgetContents)
-            content_layout.addWidget(self.label_warning_text)
-
-            self.scrollAreaWidgetContents.setStyleSheet("""
-                QWidget {
-                    background: transparent;
-                }
-            """)
-
-            # Warning text label - centered, readable
-            self.label_warning_text.setStyleSheet("""
-                QLabel {
-                    color: #1e293b;
-                    font-size: 18px;
-                    font-weight: 500;
-                    font-family: 'Segoe UI', 'Roboto', sans-serif;
-                    line-height: 2.0;
-                    padding: 24px 40px;
-                    background: transparent;
-                }
-            """)
-            self.label_warning_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.label_warning_text.setWordWrap(True)
-            self.label_warning_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-
-            # Button - Material Design 3 primary button
-            self.btn_start_test.setText("Testni boshlash")
-            self.btn_start_test.setStyleSheet("""
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #6C63FF, stop:1 #8B85FF);
-                    color: #ffffff;
-                    font-size: 20px;
-                    font-weight: 600;
-                    font-family: 'Segoe UI', 'Roboto', sans-serif;
-                    letter-spacing: 0.5px;
-                    padding: 18px 56px;
-                    border: none;
-                    border-radius: 16px;
-                    min-width: 240px;
-                    min-height: 40px;
-                }
-                QPushButton:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #5A52E0, stop:1 #7A74E8);
-                }
-                QPushButton:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #4A42D0, stop:1 #6A64D8);
-                }
-                QPushButton:focus {
-                    outline: none;
-                    border: 2px solid #A5A0FF;
-                }
-            """)
-
-            # Add shadow effect to button
-            btn_shadow = QGraphicsDropShadowEffect()
-            btn_shadow.setBlurRadius(25)
-            btn_shadow.setXOffset(0)
-            btn_shadow.setYOffset(8)
-            btn_shadow.setColor(QColor(108, 99, 255, 100))
-            self.btn_start_test.setGraphicsEffect(btn_shadow)
-
-            # Add shadow to scroll area
-            scroll_shadow = QGraphicsDropShadowEffect()
-            scroll_shadow.setBlurRadius(30)
-            scroll_shadow.setXOffset(0)
-            scroll_shadow.setYOffset(10)
-            scroll_shadow.setColor(QColor(0, 0, 0, 25))
-            self.scrollArea.setGraphicsEffect(scroll_shadow)
-
-            print("Page Note Material Design styling qo'llandi")
-
-        except Exception as e:
-            print(f"Page Note setup error: {e}")
-
-    def set_warning_text(self, text: str):
-        """API dan kelgan ogohlantirish matnini chiroyli formatda ko'rsatish"""
-        try:
-            if not text:
-                text = "Test qoidalari haqida ma'lumot mavjud emas."
-
-            # Matnni HTML formatga o'zgartirish
-            lines = text.strip().split('\n')
-            formatted_lines = []
-
-            for i, line in enumerate(lines):
-                line = line.strip()
-                if line:
-                    # Raqamli qator (1. 2. 3. ...) yoki • bilan boshlansa - card style
-                    if len(line) > 0 and (line[0].isdigit() or line.startswith('•') or line.startswith('-') or line.startswith('*')):
-                        formatted_lines.append(f'''
-                            <div style="
-                                margin: 14px auto;
-                                padding: 18px 28px;
-                                background-color: #f0f4ff;
-                                border-left: 5px solid #6C63FF;
-                                border-radius: 12px;
-                                max-width: 900px;
-                                text-align: left;
-                            ">
-                                <span style="
-                                    font-size: 17px;
-                                    font-weight: 500;
-                                    color: #1e293b;
-                                    line-height: 1.8;
-                                ">{line}</span>
-                            </div>
-                        ''')
-                    else:
-                        # Oddiy matn - sarlavha yoki tushuntirish
-                        formatted_lines.append(f'''
-                            <p style="
-                                margin: 16px auto;
-                                padding: 12px 20px;
-                                font-size: 18px;
-                                font-weight: 500;
-                                color: #334155;
-                                line-height: 1.9;
-                                max-width: 900px;
-                                text-align: center;
-                            ">{line}</p>
-                        ''')
-
-            html_content = f'''
-                <div style="
-                    text-align: center;
-                    padding: 30px 20px;
-                    font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
-                ">
-                    {''.join(formatted_lines)}
-                </div>
-            '''
-
-            self.label_warning_text.setText(html_content)
-            self.label_warning_text.setTextFormat(Qt.TextFormat.RichText)
-
-        except Exception as e:
-            print(f"Set warning text error: {e}")
-            self.label_warning_text.setText(text)
 
     def _connect_signals(self):
         """Signal-slot ulanishlar"""
@@ -831,33 +617,33 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.btn_candidate_next.clicked.connect(self._on_candidate_continue)
         self.btn_candidate_next.hide()
 
-        # btn_candidate_next - Material Design style
-        self.btn_candidate_next.setText("Davom etish →")
+        # btn_candidate_next - Yashil tema bilan uyg'unlashgan style
+        self.btn_candidate_next.setText("Davom etish  →")
         self.btn_candidate_next.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #3B82F6, stop:1 #3B82F6);
-                color: white;
-                font-size: 28px;
-                font-weight: 700;
-                padding: 15px 48px;
+            QPushButton#btn_submit {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #2f9a6d, stop:1 #1f7f5a);
+                color: #ffffff;
                 border: none;
-                border-radius: 14px;
-                min-width: 200px;
-                min-height: 30px;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 800;
+                font-family: 'Inter', sans-serif;
+                letter-spacing: 0.2px;
             }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #208AE7, stop:1 #208AE7);
+
+            QPushButton#btn_submit:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #34a876, stop:1 #2f9a6d);
             }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #15803d, stop:1 #166534);
+
+            QPushButton#btn_submit:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #1f7f5a, stop:1 #1b7b56);
             }
         """)
 
         self.btn_next_page.clicked.connect(self._on_staff_face_page)
-        self.btn_start_test.clicked.connect(self._on_start_test)
 
     def _setup_id_card(self):
         """ID karta dizaynini sozlash"""
@@ -868,7 +654,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.label_4.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.label_4.setStyleSheet("background: transparent; border: none;")
         except Exception as e:
-            print(f"ID card setup error: {e}")
+            debug(f"ID card setup error: {e}")
 
     def _load_tests(self):
         """Testlarni yuklash"""
@@ -877,7 +663,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.test_loader_worker.result.connect(self._on_tests_loaded)
             self.test_loader_worker.start()
         except Exception as e:
-            print(f"Test loader error: {e}")
+            debug(f"Test loader error: {e}")
 
     @pyqtSlot(object)
     def _on_tests_loaded(self, data: dict):
@@ -892,33 +678,31 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     test_key = test.get("key") or test.get("id")
                     # Test ma'lumotlarini userData sifatida saqlash
                     self.combo_choose_test.addItem(test_name, test)
-                print(f"Testlar yuklandi: {len(tests)} ta")
+                debug(f"Testlar yuklandi: {len(tests)} ta")
             else:
                 message = data.get("message", "Testlarni yuklashda xatolik")
-                print(f"Test yuklash xatosi: {message}")
+                debug(f"Test yuklash xatosi: {message}")
                 self.label_tests.setText(message)
         except Exception as e:
-            print(f"Tests loaded handler error: {e}")
+            debug(f"Tests loaded handler error: {e}")
 
     def show_message(self, title: str, message: str, code: int = 2):
-        """Xabar ko'rsatish"""
+        """Xabar ko'rsatish - Material Design 3 InfoModal"""
         try:
-            self.msg_box = QMessageBox(self)
-            icons = {
-                0: QMessageBox.Icon.Critical,
-                1: QMessageBox.Icon.Warning,
-                2: QMessageBox.Icon.Information,
-                3: QMessageBox.Icon.Question,
+            # Code to InfoModal type mapping
+            type_map = {
+                0: InfoModal.TYPE_ERROR,      # Critical
+                1: InfoModal.TYPE_WARNING,    # Warning
+                2: InfoModal.TYPE_INFO,       # Information
+                3: InfoModal.TYPE_INFO,       # Question
             }
-            self.msg_box.setIcon(icons.get(code, QMessageBox.Icon.Information))
-            self.msg_box.setWindowTitle(title)
-            self.msg_box.setText(message)
-            self.msg_box.setModal(True)
-            self.msg_box.raise_()
-            self.msg_box.activateWindow()
-            self.msg_box.exec()
+            msg_type = type_map.get(code, InfoModal.TYPE_INFO)
+
+            modal = InfoModal(self)
+            modal.update_data(title, message, msg_type)
+            modal.exec()
         except Exception as e:
-            print(f"Message error: {e}")
+            debug(f"Message error: {e}")
 
     def request_exit_password(self) -> bool:
         """Chiqish parolini so'rash"""
@@ -959,7 +743,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         worker.stop()
                         worker.wait(1000)
                 except Exception as e:
-                    print(f"Worker stop error: {e}")
+                    debug(f"Worker stop error: {e}")
 
     def setup_actions(self):
         """Menu actions"""
@@ -981,7 +765,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         self.stop_all_workers()
                         self.close()
         except Exception as e:
-            print(f"KeyPress error: {e}")
+            debug(f"KeyPress error: {e}")
 
     def closeEvent(self, event):
         """Oyna yopilganda"""
@@ -1007,7 +791,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.camera_overlay.move(x, y)
                     self.camera_overlay.raise_()
         except Exception as e:
-            print(f"Camera overlay position error: {e}")
+            debug(f"Camera overlay position error: {e}")
 
     # Slot handlers
     @pyqtSlot(bool)
@@ -1020,7 +804,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.current_index_page = self.stack.currentIndex()
                 self._next_page_by_name('page_no_internet')
         except Exception as e:
-            print(f"Internet checker error: {e}")
+            debug(f"Internet checker error: {e}")
 
     def _next_page_by_name(self, page_name: str):
         """Sahifaga o'tish"""
@@ -1081,18 +865,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.image_base64 = user_data.get("image_base64")  # Base64 rasm
                 self.score = result['data'].get("score", 85)  # O'xshashlik chegarasi
 
-                print(f"PINFL tasdiqlandi: {pinfl}")
+                debug(f"PINFL tasdiqlandi: {pinfl}")
 
                 # Nomzod yuzini tekshirish sahifasiga o'tish
                 if self.is_check_face_candidate and self.image_base64:
                     self._next_page_by_name('page_face')
                     self._start_candidate_face_verification()
                 else:
-                    # Yuz tekshiruvi o'chirilgan - to'g'ridan-to'g'ri keyingi sahifaga
-                    self._next_page_by_name('page_note')
-                    # Warning text ni qo'llash
-                    if self.warning_text:
-                        self.set_warning_text(self.warning_text)
+                    # Yuz tekshiruvi o'chirilgan - to'g'ridan-to'g'ri testni boshlash
+                    self._on_start_test()
             else:
                 # Xatolik
                 message = result.get("message", "Foydalanuvchi topilmadi")
@@ -1101,7 +882,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Xatolik bo'lsa buttonni qayta yoqish
             self.btn_check_im.setEnabled(True)
             self.btn_check_im.setText("Tekshirish")
-            print(f"Check PINFL error: {e}")
+            debug(f"Check PINFL error: {e}")
             self.show_message("Xatolik", f"Tekshirishda xatolik: {e}", 0)
 
     def _on_candidate_continue(self):
@@ -1114,15 +895,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if self.face_identification_worker and self.face_identification_worker.isRunning():
                 self.face_identification_worker.stop()
 
-            # Keyingi sahifaga o'tish (eslatma sahifasi)
-            self._next_page_by_name('page_note')
-
-            # Warning text ni qo'llash
-            if self.warning_text:
-                self.set_warning_text(self.warning_text)
+            # Testni boshlash (page_note o'tkazib yuboriladi)
+            self._on_start_test()
 
         except Exception as e:
-            print(f"Candidate continue error: {e}")
+            debug(f"Candidate continue error: {e}")
 
     def _start_candidate_face_verification(self):
         """Nomzod yuz tekshiruvini boshlash"""
@@ -1156,25 +933,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.face_identification_worker.start()
 
             # UI holatini yangilash - ko'k Material Design card
-            self.label_result_face_candidate.setText("◎ Yuzingizni kameraga ko'rsating...")
+            self.label_result_face_candidate.setText("Yuzingizni kameraga ko'rsating...")
             self.label_result_face_candidate.setStyleSheet("""
                 QLabel {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #3b82f6, stop:1 #2563eb);
-                    color: white;
-                    font-size: 22px;
-                    font-weight: 600;
-                    padding: 16px 28px;
-                    border-radius: 14px;
-                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    color: #f59e0b;
+                    font-size: 15px;
                 }
             """)
             self.btn_candidate_next.hide()
 
-            print("Candidate face verification boshlandi...")
+            debug("Candidate face verification boshlandi...")
 
         except Exception as e:
-            print(f"Start candidate face verification error: {e}")
+            debug(f"Start candidate face verification error: {e}")
             self.show_message("Xatolik", f"Yuz tekshiruvini boshlashda xatolik: {e}", 0)
 
     @pyqtSlot(object)
@@ -1211,80 +982,84 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 # Yuz topilmadi - sariq ogohlantirish (faqat tasdiqlanmagan bo'lsa)
                 if not self.is_verified:
-                    self.label_result_face_candidate.setText("◎ Yuzingizni kameraga ko'rsating...")
+                    self.label_result_face_candidate.setText("Yuzingizni kameraga ko'rsating...")
                     self.label_result_face_candidate.setStyleSheet("""
                         QLabel {
-                            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                stop:0 #fbbf24, stop:1 #f59e0b);
-                            color: #1e293b;
-                            font-size: 22px;
-                            font-weight: 600;
-                            padding: 16px 28px;
-                            border-radius: 14px;
-                            border: 1px solid rgba(0, 0, 0, 0.1);
+                            color: #f59e0b;
+                            font-size: 15px;
                         }
                     """)
+                    # Yuz topilmaganda buttonni yashirish
+                    self.btn_candidate_next.hide()
 
         except Exception as e:
-            print(f"Candidate face detected handler error: {e}")
+            debug(f"Candidate face detected handler error: {e}")
 
     @pyqtSlot(object)
     def _on_candidate_face_result(self, data: dict):
-        """Nomzod yuz tekshiruvi natijasi"""
+        """Nomzod yuz tekshiruvi natijasi - real-time o'xshashlik ko'rsatish"""
         try:
             is_verified = data.get("is_verified", False)
             similarity = data.get("similarity", 0)
             message = data.get("message", "")
 
-            if is_verified:
-                # Muvaffaqiyatli - yashil Material Design card
-                self.is_verified = True
-                self.ps_embedding = data.get("ps_embedding")
+            # Real-time o'xshashlik foizini DOIM ko'rsatish
+            if similarity > 0:
+                if is_verified:
+                    # Muvaffaqiyatli - yashil rang
+                    self.is_verified = True
+                    self.ps_embedding = data.get("ps_embedding")
 
-                # Face detector va identification worker'larni to'xtatish
-                if self.face_detector_worker and self.face_detector_worker.isRunning():
-                    self.face_detector_worker.stop()
-                if self.face_identification_worker and self.face_identification_worker.isRunning():
-                    self.face_identification_worker.stop()
+                    self.label_result_face_candidate.setText(f"O'xshashlik: {similarity}% ✓")
+                    self.label_result_face_candidate.setStyleSheet("""
+                        QLabel {
+                            color: #16a34a;
+                            font-size: 15px;
+                        }
+                    """)
 
-                self.label_result_face_candidate.setText(f"✓ Tasdiqlandi! ({similarity}%)")
-                self.label_result_face_candidate.setStyleSheet("""
-                    QLabel {
-                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                            stop:0 #22C55E, stop:1 #16a34a);
-                        color: white;
-                        font-size: 24px;
-                        font-weight: 700;
-                        padding: 18px 32px;
-                        border-radius: 14px;
-                        border: 1px solid rgba(255, 255, 255, 0.2);
-                    }
-                """)
+                    # Davom etish tugmasini ko'rsatish (lekin worker'larni TO'XTATMAYMIZ)
+                    self.btn_candidate_next.show()
 
-                # Davom etish tugmasini ko'rsatish
-                self.btn_candidate_next.show()
+                    debug(f"Nomzod tasdiqlandi: {similarity}% (webcam davom etmoqda)")
 
-                print(f"Nomzod tasdiqlandi: {similarity}%")
+                else:
+                    # Tasdiqlanmadi - foizga qarab rang berish
+                    threshold = self.score if hasattr(self, 'score') and self.score else 40
 
+                    if similarity >= threshold * 0.7:  # 70% dan yuqori - sariq (yaqin)
+                        color = "#f59e0b"
+                        status = "yaqin..."
+                    elif similarity >= threshold * 0.4:  # 40% dan yuqori - to'q sariq
+                        color = "#ea580c"
+                        status = "tekshirilmoqda..."
+                    else:  # Past - qizil
+                        color = "#dc2626"
+                        status = "past"
+
+                    self.label_result_face_candidate.setText(f"O'xshashlik: {similarity}% ({status})")
+                    self.label_result_face_candidate.setStyleSheet(f"""
+                        QLabel {{
+                            color: {color};
+                            font-size: 15px;
+                        }}
+                    """)
+                    # Yuz tanilmaganda buttonni yashirish
+                    self.btn_candidate_next.hide()
             else:
-                # Tasdiqlanmadi - qizil Material Design card
-                display_message = message if message else "Yuz tanilmadi"
-                self.label_result_face_candidate.setText(f"✗ {display_message}")
+                # Yuz tahlil qilinmoqda
+                self.label_result_face_candidate.setText("Yuz tahlil qilinmoqda...")
                 self.label_result_face_candidate.setStyleSheet("""
                     QLabel {
-                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                            stop:0 #ef4444, stop:1 #dc2626);
-                        color: white;
-                        font-size: 22px;
-                        font-weight: 600;
-                        padding: 16px 28px;
-                        border-radius: 14px;
-                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        color: #6b7280;
+                        font-size: 15px;
                     }
                 """)
+                # Yuz topilmaganda buttonni yashirish
+                self.btn_candidate_next.hide()
 
         except Exception as e:
-            print(f"Candidate face result handler error: {e}")
+            debug(f"Candidate face result handler error: {e}")
 
     def _on_staff_face_page(self):
         """Xodim yuz sahifasiga o'tish - test tanlangandan keyin"""
@@ -1313,10 +1088,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.timer_face_id = setting_mode.get("timer_face_id", 10)  # Default 10 soniya
             self.warning_text = test_data.get("warning_text")
 
-            print(f"Tanlangan test: {self.test_name}, key: {self.chosen_test_key}")
-            print(f"Staff face check: {self.is_check_face_staff}")
-            print(f"Face identification: {self.is_face_identification}, timer: {self.timer_face_id}s")
-            print(f"Monitor check: {self.is_detect_monitor}")
+            debug(f"Tanlangan test: {self.test_name}, key: {self.chosen_test_key}")
+            debug(f"Staff face check: {self.is_check_face_staff}")
+            debug(f"Face identification: {self.is_face_identification}, timer: {self.timer_face_id}s")
+            debug(f"Monitor check: {self.is_detect_monitor}")
 
             # Agar xodim yuz tekshiruvi yoqilgan bo'lsa - page_home ga o'tish
             if self.is_check_face_staff:
@@ -1327,7 +1102,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self._next_page_by_name('page_pinfl')
 
         except Exception as e:
-            print(f"Staff face page error: {e}")
+            debug(f"Staff face page error: {e}")
             self.show_message("Xatolik", f"Xatolik yuz berdi: {e}", 0)
 
     def _start_staff_face_recognition(self):
@@ -1338,17 +1113,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             # Boshlang'ich holat - kutish (ko'k Material Design card)
-            self.label_response.setText("◎ Yuzingizni kameraga ko'rsating...")
+            self.label_response.setText("Yuzingizni kameraga ko'rsating...")
             self.label_response.setStyleSheet("""
                 QLabel {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #3b82f6, stop:1 #2563eb);
-                    color: white;
-                    font-size: 22px;
-                    font-weight: 600;
-                    padding: 16px 28px;
-                    border-radius: 14px;
-                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    color: #F2B703;
                 }
             """)
 
@@ -1369,10 +1137,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.face_staff_worker.result_ready.connect(self._on_staff_face_result)
             self.face_staff_worker.start()
 
-            print("Staff face recognition boshlandi...")
+            debug("Staff face recognition boshlandi...")
 
         except Exception as e:
-            print(f"Start staff face recognition error: {e}")
+            debug(f"Start staff face recognition error: {e}")
             self.show_message("Xatolik", f"Yuz tekshiruvini boshlashda xatolik: {e}", 0)
 
     @pyqtSlot(object)
@@ -1404,22 +1172,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.face_staff_worker.set_face(cropped_face=rgb_face)
             else:
                 # Yuz topilmadi - sariq ogohlantirish
-                self.label_response.setText("◎ Yuzingizni kameraga ko'rsating...")
+                self.label_response.setText("Yuzingizni kameraga ko'rsating...")
                 self.label_response.setStyleSheet("""
-                    QLabel {
-                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                            stop:0 #fbbf24, stop:1 #f59e0b);
-                        color: #1e293b;
-                        font-size: 22px;
-                        font-weight: 600;
-                        padding: 16px 28px;
-                        border-radius: 14px;
-                        border: 1px solid rgba(0, 0, 0, 0.1);
-                    }
-                """)
+                                QLabel {
+                                    color: #F2B703;
+                                }
+                            """)
 
         except Exception as e:
-            print(f"Staff face detected handler error: {e}")
+            debug(f"Staff face detected handler error: {e}")
 
     @pyqtSlot(object)
     def _on_staff_face_result(self, data: dict):
@@ -1430,17 +1191,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             if is_verified:
                 # Muvaffaqiyatli - yashil Material Design card
-                self.label_response.setText("✓ Xodim tasdiqlandi!")
+                self.label_response.setText("Xodim tasdiqlandi!")
                 self.label_response.setStyleSheet("""
                     QLabel {
-                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                            stop:0 #22c55e, stop:1 #16a34a);
-                        color: white;
-                        font-size: 24px;
-                        font-weight: 700;
-                        padding: 18px 32px;
-                        border-radius: 14px;
-                        border: 1px solid rgba(255, 255, 255, 0.2);
+                        color: green;
                     }
                 """)
 
@@ -1453,27 +1207,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 # PINFL sahifasiga o'tish
                 self._next_page_by_name('page_pinfl')
-                print(f"Xodim tasdiqlandi: {message}")
-
+                debug(f"Xodim tasdiqlandi: {message}")
             else:
                 # Tasdiqlanmadi - qizil Material Design card
                 display_message = message if message else "Yuz tanilmadi"
-                self.label_response.setText(f"✗ {display_message}")
+                self.label_response.setText(f"{display_message}")
                 self.label_response.setStyleSheet("""
                     QLabel {
-                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                            stop:0 #ef4444, stop:1 #dc2626);
-                        color: white;
-                        font-size: 22px;
-                        font-weight: 600;
-                        padding: 16px 28px;
-                        border-radius: 14px;
-                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        color: red;
                     }
                 """)
 
         except Exception as e:
-            print(f"Staff face result handler error: {e}")
+            debug(f"Staff face result handler error: {e}")
 
     def _on_start_test(self):
         """Testni boshlash - WebView'da test sahifasini ochish"""
@@ -1489,7 +1235,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 # WebView ni page_test sahifasidagi layout_test ga qo'shish
                 self.layout_test.addWidget(self.webview)
 
-            print(f"Test_url: {self.test_url}")
+            debug(f"Test_url: {self.test_url}")
 
             # Test sahifasini yuklash
             self.webview.setUrl(QUrl(self.test_url))
@@ -1509,16 +1255,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self._start_monitor_checking()
 
             # Real-time face monitoring boshlash (agar yoqilgan bo'lsa)
-            print(f"Face monitoring check: is_face_identification={self.is_face_identification}, ps_embedding={self.ps_embedding is not None}")
+            debug(f"Face monitoring check: is_face_identification={self.is_face_identification}, ps_embedding={self.ps_embedding is not None}")
             if self.is_face_identification and self.ps_embedding is not None:
                 self._start_face_monitoring()
             elif self.is_face_identification and self.ps_embedding is None:
-                print("OGOHLANTIRISH: ps_embedding yo'q - face monitoring ishlamaydi!")
+                debug("OGOHLANTIRISH: ps_embedding yo'q - face monitoring ishlamaydi!")
 
-            print(f"Test boshlandi: {self.test_name}")
+            debug(f"Test boshlandi: {self.test_name}")
 
         except Exception as e:
-            print(f"Start test error: {e}")
+            debug(f"Start test error: {e}")
             self.show_message("Xatolik", f"Testni boshlashda xatolik: {e}", 0)
 
     def _start_screen_recording(self):
@@ -1529,10 +1275,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             self.screen_recorder_worker = ScreenRecorderWorker()
             self.screen_recorder_worker.start()
-            print("Screen recording boshlandi")
+            debug("Screen recording boshlandi")
 
         except Exception as e:
-            print(f"Start screen recording error: {e}")
+            debug(f"Start screen recording error: {e}")
 
     def _start_monitor_checking(self):
         """Test davomida monitor sonini tekshirishni boshlash"""
@@ -1552,26 +1298,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 if not self.checker_monitor_worker.isRunning():
                     self.checker_monitor_worker.start()
 
-                print("Monitor checking boshlandi")
+                debug("Monitor checking boshlandi")
 
         except Exception as e:
-            print(f"Start monitor checking error: {e}")
+            debug(f"Start monitor checking error: {e}")
 
     def _stop_monitor_checking(self):
         """Monitor tekshirishni to'xtatish"""
         try:
             if self.checker_monitor_worker and self.checker_monitor_worker.isRunning():
                 self.checker_monitor_worker.stop()
-                print("Monitor checking to'xtatildi")
+                debug("Monitor checking to'xtatildi")
         except Exception as e:
-            print(f"Stop monitor checking error: {e}")
+            debug(f"Stop monitor checking error: {e}")
 
     @pyqtSlot(bool)
     def _on_monitor_detected(self, has_multiple_monitors: bool):
         """Test davomida qo'shimcha monitor aniqlanganda"""
         try:
             if has_multiple_monitors:
-                print("OGOHLANTIRISH: Qo'shimcha monitor aniqlandi!")
+                debug("OGOHLANTIRISH: Qo'shimcha monitor aniqlandi!")
 
                 # Barcha worker'larni to'xtatish
                 self._stop_monitor_checking()
@@ -1593,12 +1339,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self._return_to_pinfl_page()
 
         except Exception as e:
-            print(f"Monitor detected handler error: {e}")
+            debug(f"Monitor detected handler error: {e}")
 
     def _on_camera_exit_requested(self):
         """Kamera overlay'dan chiqish so'ralganda"""
         try:
-            print("Testdan chiqish so'raldi...")
+            debug("Testdan chiqish so'raldi...")
 
             # Barcha monitoring worker'larni to'xtatish
             self._stop_monitor_checking()
@@ -1619,7 +1365,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self._return_to_pinfl_page()
 
         except Exception as e:
-            print(f"Camera exit error: {e}")
+            debug(f"Camera exit error: {e}")
 
     def _return_to_pinfl_page(self):
         """PINFL sahifasiga qaytish va holatni tozalash"""
@@ -1634,10 +1380,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # PINFL sahifasiga o'tish
             self._next_page_by_name('page_pinfl')
 
-            print("PINFL sahifasiga qaytildi")
+            debug("PINFL sahifasiga qaytildi")
 
         except Exception as e:
-            print(f"Return to PINFL page error: {e}")
+            debug(f"Return to PINFL page error: {e}")
 
     def _start_face_monitoring(self):
         """
@@ -1650,7 +1396,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         try:
             if self.app is None:
-                print("Face monitoring: Model yuklanmagan")
+                debug("Face monitoring: Model yuklanmagan")
                 return
 
             # Reset monitoring state
@@ -1692,16 +1438,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.camera1_worker = Camera1Worker(app=self.app)
             self.camera1_worker.result_ready.connect(self._on_monitoring_result)
 
-            print(f"Face monitoring boshlandi:")
-            print(f"  - Detection interval: {self.face_detection_interval}s")
-            print(f"  - Detection max fail: {self.face_detection_max_fail}")
-            print(f"  - Identification interval: {self.face_identification_interval}s")
-            print(f"  - Identification max fail: {self.face_identification_max_fail}")
-            print(f"  - Warning timeout: {self.warning_timeout}s")
-            print(f"  - Mode: detection (boshlanish)")
+            debug(f"Face monitoring boshlandi:")
+            debug(f"  - Detection interval: {self.face_detection_interval}s")
+            debug(f"  - Detection max fail: {self.face_detection_max_fail}")
+            debug(f"  - Identification interval: {self.face_identification_interval}s")
+            debug(f"  - Identification max fail: {self.face_identification_max_fail}")
+            debug(f"  - Warning timeout: {self.warning_timeout}s")
+            debug(f"  - Mode: detection (boshlanish)")
 
         except Exception as e:
-            print(f"Start face monitoring error: {e}")
+            debug(f"Start face monitoring error: {e}")
 
     def _reset_face_monitoring_state(self):
         """Face monitoring holatini qayta tiklash"""
@@ -1732,9 +1478,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if self.camera1_worker and self.camera1_worker.isRunning():
                 self.camera1_worker.stop()
 
-            print("Face monitoring to'xtatildi")
+            debug("Face monitoring to'xtatildi")
         except Exception as e:
-            print(f"Stop face monitoring error: {e}")
+            debug(f"Stop face monitoring error: {e}")
 
     def _check_face_status(self):
         """
@@ -1748,7 +1494,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             if not self.current_has_face:
                 self.face_detection_fail_count += 1
-                print(f"[DETECTION] Yuz yo'q: {self.face_detection_fail_count}/{self.face_detection_max_fail}")
+                debug(f"[DETECTION] Yuz yo'q: {self.face_detection_fail_count}/{self.face_detection_max_fail}")
 
                 if self.face_detection_fail_count >= self.face_detection_max_fail:
                     self.face_monitoring_mode = "detection"
@@ -1765,10 +1511,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 # Yuz aniqlandi - identification timer'ni yoqish
                 if not self.face_identification_timer.isActive():
                     self.face_identification_timer.start(self.face_identification_interval * 1000)
-                    print("[DETECTION] Yuz aniqlandi - Identification timer yoqildi")
+                    debug("[DETECTION] Yuz aniqlandi - Identification timer yoqildi")
 
         except Exception as e:
-            print(f"Check face status error: {e}")
+            debug(f"Check face status error: {e}")
 
     def _check_face_identity(self):
         """
@@ -1784,12 +1530,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if not self.current_has_face:
                 self.face_identification_timer.stop()
                 self.face_identification_fail_count = 0
-                print("[IDENTIFICATION] Yuz yo'q - Detection mode ga qaytish")
+                debug("[IDENTIFICATION] Yuz yo'q - Detection mode ga qaytish")
                 return
 
             if not self.current_is_verified:
                 self.face_identification_fail_count += 1
-                print(f"[IDENTIFICATION] Tanilmadi: {self.face_identification_fail_count}/{self.face_identification_max_fail}")
+                debug(f"[IDENTIFICATION] Tanilmadi: {self.face_identification_fail_count}/{self.face_identification_max_fail}")
 
                 if self.face_identification_fail_count >= self.face_identification_max_fail:
                     self.face_monitoring_mode = "identification"
@@ -1807,10 +1553,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 # Hammasi yaxshi
                 if self.face_monitoring_mode != "ok":
                     self.face_monitoring_mode = "ok"
-                    print("[IDENTIFICATION] Yuz tanilib - OK mode")
+                    debug("[IDENTIFICATION] Yuz tanilib - OK mode")
 
         except Exception as e:
-            print(f"Check face identity error: {e}")
+            debug(f"Check face identity error: {e}")
 
     def _show_face_warning_toast(self, message: str, warning_type: str = "detection", show_modal_after: bool = False):
         """
@@ -1843,10 +1589,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.modal_timer.start(self.warning_timeout * 1000)
                     toast.clicked.connect(self._on_toast_acknowledged)
 
-            print(f"[{warning_type.upper()}] Toast: {message}")
+            debug(f"[{warning_type.upper()}] Toast: {message}")
 
         except Exception as e:
-            print(f"Show face warning toast error: {e}")
+            debug(f"Show face warning toast error: {e}")
 
     def _on_toast_acknowledged(self):
         """Toast bosilganda - modal'ni bekor qilish va mode reset"""
@@ -1856,9 +1602,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.face_warning_shown = False
             self.face_monitoring_mode = "ok"
             self.toast_manager.clear_all()
-            print("Toast acknowledged - mode reset to OK")
+            debug("Toast acknowledged - mode reset to OK")
         except Exception as e:
-            print(f"Toast acknowledged error: {e}")
+            debug(f"Toast acknowledged error: {e}")
 
     def _show_face_warning_modal(self, warning_type: str = "detection"):
         """Face warning modal ko'rsatish"""
@@ -1892,16 +1638,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.face_monitoring_mode = "ok"
 
         except Exception as e:
-            print(f"Show face warning modal error: {e}")
+            debug(f"Show face warning modal error: {e}")
 
     def _on_face_warning_acknowledged(self):
         """Foydalanuvchi "Tushundim" bosganda"""
         try:
             self.face_warning_shown = False
             self.face_monitoring_mode = "ok"
-            print("Face warning acknowledged - mode reset to OK")
+            debug("Face warning acknowledged - mode reset to OK")
         except Exception as e:
-            print(f"Face warning acknowledged error: {e}")
+            debug(f"Face warning acknowledged error: {e}")
 
     def _on_face_warning_timeout(self):
         """Modal timeout - serverga warning yuborish"""
@@ -1909,13 +1655,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.face_warning_shown = False
             self._send_warning_to_server("Yuz aniqlanmadi/tanilmadi - 30s reaksiya berilmadi")
         except Exception as e:
-            print(f"Face warning timeout error: {e}")
+            debug(f"Face warning timeout error: {e}")
 
     def _send_warning_to_server(self, message: str):
         """Serverga warning yuborish"""
         try:
             if not self.im:
-                print("Warning yuborilmadi: PINFL mavjud emas")
+                debug("Warning yuborilmadi: PINFL mavjud emas")
                 return
 
             api_client = APIClient(base_url=self.base_url)
@@ -1926,12 +1672,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
 
             if result.get("status"):
-                print(f"Warning serverga yuborildi: {message}")
+                debug(f"Warning serverga yuborildi: {message}")
             else:
-                print(f"Warning yuborishda xatolik: {result.get('message')}")
+                debug(f"Warning yuborishda xatolik: {result.get('message')}")
 
         except Exception as e:
-            print(f"Send warning to server error: {e}")
+            debug(f"Send warning to server error: {e}")
 
     @pyqtSlot(object)
     def _on_monitoring_face_detected(self, data: dict):
@@ -1965,7 +1711,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.current_is_verified = False
 
         except Exception as e:
-            print(f"Monitoring face detected error: {e}")
+            debug(f"Monitoring face detected error: {e}")
 
     @pyqtSlot(object)
     def _on_monitoring_result(self, data: dict):
@@ -1979,7 +1725,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.last_face_identified = is_verified
 
             if not is_verified:
-                print(f"Face monitoring warning: {message}")
+                debug(f"Face monitoring warning: {message}")
 
         except Exception as e:
-            print(f"Monitoring result error: {e}")
+            debug(f"Monitoring result error: {e}")

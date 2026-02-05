@@ -3,6 +3,7 @@ API Client - Server bilan aloqa qilish uchun
 """
 import requests
 from typing import Optional, Dict, Any
+from utils.logger import error
 
 
 class APIClient:
@@ -123,5 +124,5 @@ class APIClient:
             )
             return result
         except Exception as e:
-            print(f"Send warning error: {e}")
+            error(f"Send warning error: {e}")
             return {"status": False, "message": str(e)}

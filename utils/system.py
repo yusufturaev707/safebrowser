@@ -7,6 +7,7 @@ import platform
 import psutil
 from pathlib import Path
 from typing import Tuple, Optional
+from utils.logger import debug, warning, error
 
 
 # ============================================
@@ -97,7 +98,7 @@ def open_camera(camera_index: int = 0, width: int = 640, height: int = 480, fps:
 
         if not cap.isOpened():
             # Fallback: default backend bilan urinish
-            print(f"Backend {backend} bilan ochilmadi, default bilan urinilmoqda...")
+            warning(f"Backend {backend} bilan ochilmadi, default bilan urinilmoqda...")
             cap = cv2.VideoCapture(camera_index)
 
         if cap.isOpened():
@@ -107,11 +108,11 @@ def open_camera(camera_index: int = 0, width: int = 640, height: int = 480, fps:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             return cap
         else:
-            print(f"Kamera {camera_index} ochilmadi")
+            warning(f"Kamera {camera_index} ochilmadi")
             return None
 
     except Exception as e:
-        print(f"Kamera ochishda xatolik: {e}")
+        error(f"Kamera ochishda xatolik: {e}")
         return None
 
 

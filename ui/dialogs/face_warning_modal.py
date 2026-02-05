@@ -164,7 +164,7 @@ class FaceWarningModal(QDialog):
                 color: {title_color};
                 font-size: 28px;
                 font-weight: 700;
-                font-family: 'Segoe UI', 'Roboto', sans-serif;
+                font-family: 'Inter', sans-serif;
                 background: transparent;
             }}
         """)
@@ -178,7 +178,7 @@ class FaceWarningModal(QDialog):
                 color: {text_color};
                 font-size: 16px;
                 font-weight: 500;
-                font-family: 'Segoe UI', 'Roboto', sans-serif;
+                font-family: 'Inter', sans-serif;
                 line-height: 1.6;
                 background: transparent;
                 padding: 8px;
@@ -190,7 +190,7 @@ class FaceWarningModal(QDialog):
                 color: {title_color};
                 font-size: 14px;
                 font-weight: 600;
-                font-family: 'Segoe UI', 'Roboto', sans-serif;
+                font-family: 'Inter', sans-serif;
                 background: transparent;
             }}
         """)
@@ -208,7 +208,7 @@ class FaceWarningModal(QDialog):
                 color: white;
                 font-size: 18px;
                 font-weight: 600;
-                font-family: 'Segoe UI', 'Roboto', sans-serif;
+                font-family: 'Inter', sans-serif;
                 padding: 14px 32px;
                 border: none;
                 border-radius: 12px;
