@@ -91,7 +91,7 @@ class APIClient:
         }
         result = self.get("check-candidate-exam/", params=params)
 
-        if result.get("status") == True and result['data'].get("status") == "success":
+        if result.get("status") == True:
             return {
                 "status": True,
                 "data": result['data'],
