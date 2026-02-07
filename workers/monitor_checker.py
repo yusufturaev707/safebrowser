@@ -84,11 +84,14 @@ class MonitorWorker(QThread):
     def get_cheating_monitor(self) -> bool:
         import platform
         os_name = platform.system()
+        print(f"OS name: {os_name}")
 
         if os_name == "Windows":
             return self.get_windows_monitor_count() > 1
         elif os_name == "Linux":
-            return self.get_linux_monitor_count() > 1
+            count_window = self.get_linux_monitor_count()
+            print(f"Linux monitor count: {count_window}")
+            return count_window > 1
         elif os_name == "Darwin":  # macOS
             #return self.get_macos_monitor_count()
             return self.check_cheating_monitor() > 1
