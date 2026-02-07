@@ -140,6 +140,22 @@ class PageMain(QWidget):
 
         card_layout.addSpacing(14)
 
+        # Camera field title
+        self.label_camera_field = QLabel("Kamerani tanlang")
+        self.label_camera_field.setObjectName("label_camera_field")
+        card_layout.addWidget(self.label_camera_field)
+
+        card_layout.addSpacing(10)
+
+        # Camera select dropdown
+        self.combo_choose_camera = QComboBox()
+        self.combo_choose_camera.setObjectName("combo_choose_camera")
+        self.combo_choose_camera.setMinimumHeight(46)
+        self.combo_choose_camera.setPlaceholderText("Kamerani tanlang")
+        card_layout.addWidget(self.combo_choose_camera)
+
+        card_layout.addSpacing(14)
+
         # Button
         self.btn_next_page = QPushButton("Davom etish")
         self.btn_next_page.setObjectName("btn_next_page")
@@ -337,6 +353,83 @@ class PageMain(QWidget):
                 font-weight: 700;
                 font-family: 'Inter', sans-serif;
                 background: transparent;
+            }
+        """)
+
+        # Camera field title
+        self.label_camera_field.setStyleSheet("""
+            QLabel#label_camera_field {
+                color: #111827;
+                font-size: 16px;
+                font-weight: 700;
+                font-family: 'Inter', sans-serif;
+                background: transparent;
+            }
+        """)
+
+        # Camera ComboBox
+        self.combo_choose_camera.setStyleSheet("""
+            QComboBox#combo_choose_camera {
+                background-color: #f8fafc;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 0 14px;
+                font-size: 14px;
+                font-weight: 500;
+                font-family: 'Inter', sans-serif;
+                color: #0f172a;
+            }
+
+            QComboBox#combo_choose_camera:hover {
+                background-color: #ffffff;
+                border: 2px solid #2f9a6d;
+            }
+
+            QComboBox#combo_choose_camera:focus,
+            QComboBox#combo_choose_camera:on {
+                background-color: #ffffff;
+                border: 2px solid #2f9a6d;
+            }
+
+            QComboBox#combo_choose_camera::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: center right;
+                width: 36px;
+                border: none;
+                background: transparent;
+            }
+
+            QComboBox#combo_choose_camera::down-arrow {
+                image: url(resources/images/arrow-down.png);
+                width: 14px;
+                height: 14px;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView {
+                background-color: #ffffff;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                selection-background-color: #dcfce7;
+                selection-color: #0f172a;
+                padding: 8px;
+                outline: none;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView::item {
+                padding: 12px 14px;
+                border-radius: 8px;
+                min-height: 32px;
+                color: #0f172a;
+                background-color: transparent;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView::item:hover {
+                background-color: #f0fdf4;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView::item:selected {
+                background-color: #dcfce7;
+                color: #166534;
             }
         """)
 

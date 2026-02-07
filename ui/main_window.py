@@ -31,7 +31,7 @@ from config import config
 from utils.system import get_disk_with_most_free_space
 from services.api_client import APIClient
 from core.face_analyzer import FaceAnalyzer
-from utils.system import is_windows, is_linux, is_macos, get_platform_name
+from utils.system import is_windows, is_linux, is_macos, get_platform_name, get_available_cameras
 from utils.logger import get_logger, info, debug, warning, error, exception
 
 # Logger
@@ -505,6 +505,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.app = None
         self.face_analyzer = None
         self.state = None
+        self.selected_camera_index = 0
 
         # Settings
         self.is_detect_monitor = None
@@ -611,6 +612,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Load tests
         self._load_tests()
 
+        # Load available cameras
+        self._load_cameras()
+
     def _connect_signals(self):
         """Signal-slot ulanishlar"""
         self.btn_check_im.clicked.connect(self._on_check_pinfl)
@@ -664,6 +668,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.test_loader_worker.start()
         except Exception as e:
             debug(f"Test loader error: {e}")
+
+    def _load_cameras(self):
+        """Mavjud kameralarni yuklash"""
+        try:
+            cameras = get_available_cameras()
+            self.combo_choose_camera.clear()
+            if cameras:
+                for index, name in cameras:
+                    self.combo_choose_camera.addItem(name, index)
+                self.selected_camera_index = cameras[0][0]
+                debug(f"Kameralar yuklandi: {len(cameras)} ta")
+            else:
+                self.combo_choose_camera.addItem("Kamera topilmadi", -1)
+                debug("Hech qanday kamera topilmadi")
+        except Exception as e:
+            debug(f"Camera loader error: {e}")
 
     @pyqtSlot(object)
     def _on_tests_loaded(self, data: dict):
@@ -823,8 +843,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """PINFL tekshirish va foydalanuvchi ma'lumotlarini olish"""
         try:
             if self.is_detect_monitor:
-                # Monitor sonini tekshirish
-                if MonitorWorker.check_cheating_monitor():
+                if self.checker_monitor_worker.get_cheating_monitor():
                     self.show_message(
                         "Ogohlantirish",
                         "Qo'shimcha monitor aniqlandi!\n\n"
@@ -928,7 +947,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.face_identification_worker.stop()
 
             # Face Detector Worker'ni boshlash
-            self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=0)
+            self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=self.selected_camera_index)
             self.face_detector_worker.face_detected.connect(self._on_candidate_face_detected)
             self.face_detector_worker.camera_error.connect(self._on_camera_error)
             self.face_detector_worker.start()
@@ -1079,6 +1098,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.show_message("Ogohlantirish", "Iltimos, testni tanlang!", 1)
                 return
 
+            # Tanlangan kamera indexni saqlash
+            camera_data = self.combo_choose_camera.currentData()
+            if camera_data is not None and camera_data != -1:
+                self.selected_camera_index = camera_data
+            debug(f"Tanlangan kamera: {self.selected_camera_index}")
+
             # Test ma'lumotlarini saqlash
             self.chosen_test_key = test_data.get("key") or test_data.get("id")
             self.test_name = test_data.get("name")
@@ -1134,7 +1159,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.face_staff_worker.stop()
 
             # Face Detector Worker'ni boshlash
-            self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=0)
+            self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=self.selected_camera_index)
             self.face_detector_worker.face_detected.connect(self._on_staff_face_detected)
             self.face_detector_worker.camera_error.connect(self._on_camera_error)
             self.face_detector_worker.start()
@@ -1436,7 +1461,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             # Face detector worker (continuous) - InsightFace orqali yengil detect
             if self.face_detector_worker is None or not self.face_detector_worker.isRunning():
-                self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=0)
+                self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=self.selected_camera_index)
                 self.face_detector_worker.face_detected.connect(self._on_monitoring_face_detected)
                 self.face_detector_worker.camera_error.connect(self._on_camera_error)
                 self.face_detector_worker.start()

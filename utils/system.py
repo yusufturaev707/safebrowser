@@ -76,6 +76,138 @@ def get_camera_backend() -> int:
         return cv2.CAP_ANY
 
 
+def _get_camera_names_windows() -> dict:
+    """
+    Windows: DirectShow orqali kamera nomlarini olish
+    Returns: {index: name} — masalan {0: "HD Webcam", 1: "USB Camera"}
+    """
+    names = {}
+    try:
+        import subprocess
+        # PowerShell orqali kamera qurilmalarini olish
+        result = subprocess.run(
+            ['powershell', '-Command',
+             'Get-CimInstance Win32_PnPEntity | Where-Object {$_.PNPClass -eq "Camera" -or $_.PNPClass -eq "Image"} | Select-Object -ExpandProperty Name'],
+            capture_output=True, text=True, timeout=5, creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            for i, name in enumerate(result.stdout.strip().splitlines()):
+                name = name.strip()
+                if name:
+                    names[i] = name
+    except Exception as e:
+        debug(f"Windows kamera nomlari olishda xatolik: {e}")
+    return names
+
+
+def _get_camera_names_linux() -> dict:
+    """
+    Linux: /sys/class/video4linux orqali kamera nomlarini olish
+    Returns: {index: name}
+    """
+    names = {}
+    try:
+        from pathlib import Path
+        video_dir = Path("/sys/class/video4linux")
+        if video_dir.exists():
+            for device in sorted(video_dir.iterdir()):
+                # video0, video1, ... dan indexni olish
+                dev_name = device.name  # "video0"
+                if dev_name.startswith("video"):
+                    try:
+                        idx = int(dev_name.replace("video", ""))
+                    except ValueError:
+                        continue
+                    name_file = device / "name"
+                    if name_file.exists():
+                        camera_name = name_file.read_text().strip()
+                        if camera_name:
+                            names[idx] = camera_name
+    except Exception as e:
+        debug(f"Linux kamera nomlari olishda xatolik: {e}")
+    return names
+
+
+def _get_camera_names_macos() -> dict:
+    """
+    macOS: system_profiler orqali kamera nomlarini olish
+    Returns: {index: name}
+    """
+    names = {}
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['system_profiler', 'SPCameraDataType'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            idx = 0
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                # Kamera nomi indentatsiyasiz yoki bitta indentatsiya bilan keladi
+                # Format: "    Camera Name:" yoki kamera nomi o'zi
+                if line and not line.startswith(("Camera", "Unique", "Model", "Resolution")):
+                    continue
+                if line.endswith(":") and not line.startswith(("Camera", "Unique", "Model", "Resolution")):
+                    camera_name = line.rstrip(":")
+                    names[idx] = camera_name
+                    idx += 1
+            # Agar parse ishlamasa, oddiy usul
+            if not names:
+                idx = 0
+                lines = result.stdout.splitlines()
+                for i, line in enumerate(lines):
+                    stripped = line.strip()
+                    # Kamera nomlari odatda 4 space indent bilan va ":" bilan tugaydi
+                    if (stripped.endswith(":") and
+                            not stripped.startswith(("Camera", "Cameras", "Unique", "Model", "Resolution")) and
+                            len(line) - len(line.lstrip()) == 4):
+                        camera_name = stripped.rstrip(":")
+                        names[idx] = camera_name
+                        idx += 1
+    except Exception as e:
+        debug(f"macOS kamera nomlari olishda xatolik: {e}")
+    return names
+
+
+def get_available_cameras(max_index: int = 5) -> list:
+    """
+    Mavjud kameralarni haqiqiy nomlari bilan ro'yxatlash
+
+    Args:
+        max_index: Tekshiriladigan maksimal kamera indeksi
+
+    Returns:
+        [(index, name), ...] — masalan [(0, "HD Webcam"), (1, "USB Camera")]
+    """
+    import cv2
+
+    # Platform bo'yicha kamera nomlarini olish
+    if is_windows():
+        device_names = _get_camera_names_windows()
+    elif is_linux():
+        device_names = _get_camera_names_linux()
+    elif is_macos():
+        device_names = _get_camera_names_macos()
+    else:
+        device_names = {}
+
+    cameras = []
+    backend = get_camera_backend()
+
+    for i in range(max_index):
+        try:
+            cap = cv2.VideoCapture(i, backend)
+            if cap.isOpened():
+                name = device_names.get(i, f"Camera {i}")
+                cameras.append((i, name))
+                cap.release()
+        except Exception:
+            continue
+
+    return cameras
+
+
 def open_camera(camera_index: int = 0, width: int = 640, height: int = 480, fps: int = 30):
     """
     Cross-platform kamera ochish

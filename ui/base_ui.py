@@ -89,6 +89,7 @@ class Ui_MainWindow(object):
         self.label_logo_2 = self.page_main.label_logo_2
         self.label_6 = self.page_main.label_6
         self.combo_choose_test = self.page_main.combo_choose_test
+        self.combo_choose_camera = self.page_main.combo_choose_camera
         self.btn_next_page = self.page_main.btn_next_page
         self.label_3 = self.page_main.label_3
 
