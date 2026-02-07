@@ -51,7 +51,7 @@ class APIClient:
                 "status": False,
                 "message": f"Server xatoligi: {response.json().get('message', response.status_code)}"
             }
-        if response.status_code in [400, 404, 405]:
+        if response.status_code in [400, 401, 404, 405]:
             return {
                 "status": False,
                 "message": f"{response.json().get('message', response.status_code)}"
@@ -91,7 +91,7 @@ class APIClient:
         }
         result = self.get("check-candidate-exam/", params=params)
 
-        if result.get("status") == True:
+        if result.get('status'):
             return {
                 "status": True,
                 "data": result['data'],

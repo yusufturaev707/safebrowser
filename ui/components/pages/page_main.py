@@ -55,9 +55,13 @@ class PageMain(QWidget):
         # ============ PANEL (Main container) ============
         self.panel = QFrame()
         self.panel.setObjectName("panel")
-        panel_layout = QHBoxLayout(self.panel)
+        panel_layout = QVBoxLayout(self.panel)
         panel_layout.setContentsMargins(26, 26, 26, 26)
-        panel_layout.setSpacing(22)
+        panel_layout.setSpacing(0)
+
+        # Cards row (left 5/12 + right 7/12)
+        cards_row = QHBoxLayout()
+        cards_row.setSpacing(22)
 
         # ============ LEFT WRAPPER CARD (5/12 columns) ============
         self.left_wrapper_card = QFrame()
@@ -163,17 +167,12 @@ class PageMain(QWidget):
 
         card_layout.addLayout(hint_layout)
 
-        # Error label
-        self.label_tests = QLabel("")
-        self.label_tests.setObjectName("label_tests")
-        card_layout.addWidget(self.label_tests)
-
         left_wrapper_layout.addWidget(self.card)
 
         # Stretch after card to center vertically
         left_wrapper_layout.addStretch()
 
-        panel_layout.addWidget(self.left_wrapper_card, 5)  # 5/12 columns
+        cards_row.addWidget(self.left_wrapper_card, 5)  # 5/12 columns
 
         # ============ RIGHT IMAGE CARD (7/12 columns) ============
         self.right_card = QFrame()
@@ -196,7 +195,9 @@ class PageMain(QWidget):
         self.illus_image.setMinimumSize(200, 150)
         right_card_layout.addWidget(self.illus_image)
 
-        panel_layout.addWidget(self.right_card, 7)  # 7/12 columns
+        cards_row.addWidget(self.right_card, 7)  # 7/12 columns
+
+        panel_layout.addLayout(cards_row, 1)
 
         # Legacy compatibility
         self.label_3 = self.right_card
@@ -459,16 +460,6 @@ class PageMain(QWidget):
             }
         """)
 
-        # Error label
-        self.label_tests.setStyleSheet("""
-            QLabel#label_tests {
-                color: #ef4444;
-                font-size: 13px;
-                font-weight: 500;
-                background: transparent;
-                padding-top: 8px;
-            }
-        """)
 
         # ===== RIGHT IMAGE CARD =====
         self.right_card.setStyleSheet("""

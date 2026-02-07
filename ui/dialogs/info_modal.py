@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QWidget
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor, QPainter, QPen
+from PyQt6.QtCore import Qt, QRect
+from PyQt6.QtGui import QFont, QFontMetrics, QColor, QPainter, QPen
 from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 
 
@@ -33,7 +33,10 @@ class InfoModal(QDialog):
             Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(420, 280)
+
+        # Dinamik o'lcham chegaralari
+        self.setMinimumSize(340, 220)
+        self.setMaximumSize(560, 450)
 
         self._message_type = self.TYPE_INFO
         self._setup_ui()
@@ -319,6 +322,34 @@ class InfoModal(QDialog):
         self._apply_text_styles(msg_type)
         self._apply_button_style(msg_type)
         self.icon_container.set_type(msg_type)
+
+        self._resize_to_content(message)
+
+    def _resize_to_content(self, message: str):
+        """Matn hajmiga qarab dialog width/height ni dinamik hisoblash"""
+        # Matn kengligini o'lchash
+        fm = QFontMetrics(self.message_label.font())
+        text_width = fm.horizontalAdvance(message)
+        # padding (28*2) + message padding (10*2) = 76
+        padding = 76
+
+        # Kenglik: matn bir qatorga sig'sa — shu kenglik, aks holda max gacha o'sadi
+        ideal_width = text_width + padding
+        width = max(self.minimumWidth(), min(ideal_width, self.maximumWidth()))
+        self.setFixedWidth(width)
+
+        # Balandlik: matn necha qatorga bo'linishini hisoblash
+        available_text_width = width - padding
+        text_rect = fm.boundingRect(
+            QRect(0, 0, available_text_width, 0),
+            Qt.TextFlag.TextWordWrap,
+            message,
+        )
+        # icon(56) + spacing(16) + title(~28) + spacing(8) + text + spacing(20) + button(48) + paddings(48)
+        fixed_height = 56 + 16 + 28 + 8 + 20 + 48 + 48
+        height = fixed_height + text_rect.height()
+        height = max(self.minimumHeight(), min(height, self.maximumHeight()))
+        self.setFixedHeight(height)
 
     def showEvent(self, event):
         """Modalni markazga joylash"""

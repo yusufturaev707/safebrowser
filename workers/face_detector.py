@@ -18,6 +18,7 @@ class FaceDetectorWorker(QThread):
     - Real-time kamera stream uchun optimallashtirilgan
     """
     face_detected = pyqtSignal(object)
+    camera_error = pyqtSignal(str)
 
     def __init__(self, app=None, camera_index: int = 0):
         super().__init__()
@@ -188,6 +189,7 @@ class FaceDetectorWorker(QThread):
         """Asosiy thread loop"""
         if not self._init_camera():
             error("Camera initialization failed")
+            self.camera_error.emit("Kamera ochilmadi! Kamera ulanganligini tekshiring.")
             return
 
         info("Face Detector Worker started")

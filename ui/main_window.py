@@ -682,7 +682,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 message = data.get("message", "Testlarni yuklashda xatolik")
                 debug(f"Test yuklash xatosi: {message}")
-                self.label_tests.setText(message)
+                self.show_message("Xatolik", message, 0)
         except Exception as e:
             debug(f"Tests loaded handler error: {e}")
 
@@ -703,6 +703,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             modal.exec()
         except Exception as e:
             debug(f"Message error: {e}")
+
+    @pyqtSlot(str)
+    def _on_camera_error(self, message: str):
+        """Kamera xatoligi yuz berganda warning ko'rsatish"""
+        self.show_message("Ogohlantirish", message, 1)
 
     def request_exit_password(self) -> bool:
         """Chiqish parolini so'rash"""
@@ -925,6 +930,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Face Detector Worker'ni boshlash
             self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=0)
             self.face_detector_worker.face_detected.connect(self._on_candidate_face_detected)
+            self.face_detector_worker.camera_error.connect(self._on_camera_error)
             self.face_detector_worker.start()
 
             # Face ID Worker'ni boshlash (nomzod uchun)
@@ -1130,6 +1136,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Face Detector Worker'ni boshlash
             self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=0)
             self.face_detector_worker.face_detected.connect(self._on_staff_face_detected)
+            self.face_detector_worker.camera_error.connect(self._on_camera_error)
             self.face_detector_worker.start()
 
             # Staff Face ID Worker'ni boshlash
@@ -1431,6 +1438,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if self.face_detector_worker is None or not self.face_detector_worker.isRunning():
                 self.face_detector_worker = FaceDetectorWorker(app=self.app, camera_index=0)
                 self.face_detector_worker.face_detected.connect(self._on_monitoring_face_detected)
+                self.face_detector_worker.camera_error.connect(self._on_camera_error)
                 self.face_detector_worker.start()
 
             # Camera1Worker - face identification (embedding comparison)

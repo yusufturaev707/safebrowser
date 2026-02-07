@@ -90,7 +90,6 @@ class Ui_MainWindow(object):
         self.label_6 = self.page_main.label_6
         self.combo_choose_test = self.page_main.combo_choose_test
         self.btn_next_page = self.page_main.btn_next_page
-        self.label_tests = self.page_main.label_tests
         self.label_3 = self.page_main.label_3
 
         # Page Home elements
