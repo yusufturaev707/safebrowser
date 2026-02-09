@@ -1,31 +1,49 @@
+from ultralytics import YOLO
 import cv2
-from insightface.app import FaceAnalysis
+import torch
 
-# Faqat 'det' (detection) modulini yuklaymiz.
-# 'rec' (recognition) va boshqalarni yuklamaslik orqali tezlikni oshiramiz.
-app = FaceAnalysis(allowed_modules=['detection'])
-app.prepare(ctx_id=0, det_size=(640, 640)) # ctx_id=0 agar GPU bo'lsa, -1 agar CPU bo'lsa
 
+class PersonDetector:
+    def __init__(self):
+        # GPU mavjudligini tekshirish
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        # Model yuklash
+        self.model = YOLO('yolo11n.pt')
+        self.model.to(self.device)
+
+        print(f"🖥️ Qurilma: {self.device.upper()}")
+        if self.device == 'cuda':
+            print(f"🎮 GPU: {torch.cuda.get_device_name(0)}")
+
+    def count_persons(self, frame):
+        results = self.model.predict(
+            frame,
+            classes=[0],  # faqat odamlar
+            conf=0.5,
+            device=self.device,
+            verbose=False
+        )
+        return len(results[0].boxes), results[0]
+
+
+# Ishlatish
+detector = PersonDetector()
 cap = cv2.VideoCapture(0)
 
-while cap.isOpened():
-    success, frame = cap.read()
-    if not success: break
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
 
-    # Yuzni aniqlash
-    faces = app.get(frame)
+    count, results = detector.count_persons(frame)
 
-    if len(faces) > 0:
-        # Yuz topildi
-        for face in faces:
-            bbox = face.bbox.astype(int)
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
-            cv2.putText(frame, "User Online", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    else:
-        # Yuz topilmadi
-        cv2.putText(frame, "WARNING: No Face Detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+    annotated = results.plot()
+    cv2.putText(annotated, f'Odamlar: {count}',
+                (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
-    cv2.imshow('InsightFace Proctoring', frame)
+    cv2.imshow('Detection', annotated)
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 

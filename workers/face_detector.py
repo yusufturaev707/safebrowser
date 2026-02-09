@@ -134,7 +134,7 @@ class FaceDetectorWorker(QThread):
             face_area_ratio = (face_width * face_height) / (w * h)
 
             # Debug info
-            debug(f"[FaceDetector] scale={scale_factor}, face_size={face_width}x{face_height}, ratio={face_area_ratio:.1%}")
+            #debug(f"[FaceDetector] scale={scale_factor}, face_size={face_width}x{face_height}, ratio={face_area_ratio:.1%}")
 
             # Margin qo'shish - yaqin yuzlar uchun kichikroq margin
             if face_area_ratio > 0.4:  # Yuz juda yaqin (40% dan katta)
@@ -219,7 +219,8 @@ class FaceDetectorWorker(QThread):
                 self.face_detected.emit({
                     "image": qt_image,
                     "crop_face": cropped_face,
-                    "has_face": face_box is not None
+                    "has_face": face_box is not None,
+                    "raw_frame": frame
                 })
 
                 self.msleep(33)

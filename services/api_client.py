@@ -65,6 +65,7 @@ class APIClient:
     def load_tests(self) -> Dict[str, Any]:
         """Testlar ro'yxatini yuklash"""
         result = self.get("load-tests/")
+        print(result)
         if result.get("status") == "success":
             return {
                 "status": True,

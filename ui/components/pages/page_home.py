@@ -1,483 +1,329 @@
 """
-Page Home - Xodim yuz tekshiruvi sahifasi
-HTML page2.html dizayniga asoslangan
+Page Main - Bosh sahifa (test tanlash)
+HTML dizayniga asoslangan - Material Design 3
 """
 
-from PyQt6.QtCore import (
-    QEasingCurve,
-    QPropertyAnimation,
-    QRect,
-    QRectF,
-    QSequentialAnimationGroup,
-    QSize,
-    Qt,
-    QTimer,
-    pyqtProperty,
-)
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QPixmap
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QColor, QFont, QIcon, QPixmap
 from PyQt6.QtWidgets import (
+    QComboBox,
     QFrame,
     QGraphicsDropShadowEffect,
-    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 
-class ScanLine(QWidget):
-    """Animated scan line with glow effect for camera"""
+class PageMain(QWidget):
+    """Bosh sahifa - test tanlash"""
+
+    # CSS Variables (from HTML)
+    COLORS = {
+        "bg": "#f3f7fb",
+        "card": "#ffffff",
+        "text": "#0f172a",
+        "muted": "#64748b",
+        "green": "#2f9a6d",
+        "green_dark": "#1f7f5a",
+        "line": "rgba(15, 23, 42, 0.10)",
+    }
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setObjectName("scan_line")
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-
-    def paintEvent(self, event):
-        """Custom paint with glow effect"""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        width = self.width()
-        height = self.height()
-        center_y = height // 2
-
-        # Draw multiple glow layers (outer to inner)
-        glow_layers = [
-            (16, QColor(102, 210, 176, 25)),
-            (12, QColor(102, 210, 176, 40)),
-            (8, QColor(102, 210, 176, 60)),
-            (5, QColor(102, 210, 176, 90)),
-            (3, QColor(116, 214, 182, 140)),
-        ]
-
-        for blur_height, color in glow_layers:
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QBrush(color))
-            rect = QRectF(0, center_y - blur_height / 2, width, blur_height)
-            painter.drawRoundedRect(rect, blur_height / 2, blur_height / 2)
-
-        # Draw main bright line
-        painter.setBrush(QBrush(QColor(150, 230, 210, 220)))
-        main_rect = QRectF(0, center_y - 1.5, width, 3)
-        painter.drawRoundedRect(main_rect, 1.5, 1.5)
-
-        # Draw center highlight (white core)
-        painter.setBrush(QBrush(QColor(255, 255, 255, 180)))
-        highlight_rect = QRectF(width * 0.1, center_y - 0.5, width * 0.8, 1)
-        painter.drawRoundedRect(highlight_rect, 0.5, 0.5)
-
-        painter.end()
-
-    def start_animation(self, parent_height):
-        """Start the scan animation"""
-        width = self.parent().width() - 20
-        line_height = 36  # Taller for glow effect
-        start_y = 14
-        end_y = parent_height - 20
-
-        # Create animation group for smooth back and forth
-        self.anim_group = QSequentialAnimationGroup(self)
-
-        # Forward animation
-        self.anim_forward = QPropertyAnimation(self, b"geometry")
-        self.anim_forward.setDuration(1800)
-        self.anim_forward.setStartValue(QRect(10, start_y, width, line_height))
-        self.anim_forward.setEndValue(QRect(10, end_y - line_height, width, line_height))
-        self.anim_forward.setEasingCurve(QEasingCurve.Type.InOutQuad)
-
-        # Backward animation
-        self.anim_backward = QPropertyAnimation(self, b"geometry")
-        self.anim_backward.setDuration(1800)
-        self.anim_backward.setStartValue(QRect(10, end_y - line_height, width, line_height))
-        self.anim_backward.setEndValue(QRect(10, start_y, width, line_height))
-        self.anim_backward.setEasingCurve(QEasingCurve.Type.InOutQuad)
-
-        self.anim_group.addAnimation(self.anim_forward)
-        self.anim_group.addAnimation(self.anim_backward)
-        self.anim_group.setLoopCount(-1)
-        self.anim_group.start()
-
-    def stop_animation(self):
-        """Stop the scan animation"""
-        if hasattr(self, "anim_group"):
-            self.anim_group.stop()
-
-
-class RoundedLabel(QLabel):
-    """QLabel with rounded corners that clips pixmap content"""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._border_radius = 12
-        self._border_color = QColor(102, 210, 176, 153)
-        self._border_width = 2
-
-    def setBorderRadius(self, radius):
-        self._border_radius = radius
-        self.update()
-
-    def setBorderColor(self, color):
-        self._border_color = color
-        self.update()
-
-    def setBorderWidth(self, width):
-        self._border_width = width
-        self.update()
-
-    def paintEvent(self, event):
-        if self.pixmap() and not self.pixmap().isNull():
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-            # Create rounded rect
-            border_offset = self._border_width / 2
-            rect = QRectF(
-                border_offset,
-                border_offset,
-                self.width() - self._border_width,
-                self.height() - self._border_width,
-            )
-
-            # Create rounded rect path for clipping
-            path = QPainterPath()
-            path.addRoundedRect(rect, self._border_radius, self._border_radius)
-
-            # Clip to rounded rect
-            painter.setClipPath(path)
-
-            # Scale and draw pixmap
-            scaled_pixmap = self.pixmap().scaled(
-                self.size(),
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-
-            # Center the pixmap
-            x = (self.width() - scaled_pixmap.width()) // 2
-            y = (self.height() - scaled_pixmap.height()) // 2
-            painter.drawPixmap(x, y, scaled_pixmap)
-
-            # Draw border
-            painter.setClipping(False)
-            pen = QPen(self._border_color, self._border_width)
-            painter.setPen(pen)
-            painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-            painter.drawRoundedRect(rect, self._border_radius, self._border_radius)
-
-            painter.end()
-        else:
-            super().paintEvent(event)
-
-
-class PageHome(QWidget):
-    """Xodim yuz tekshiruvi sahifasi - HTML page2.html style"""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setObjectName("page_home")
+        self.setObjectName("page_main")
         self._setup_ui()
         self._apply_styles()
-        self._setup_animations()
+        self._setup_connections()
 
     def _setup_ui(self):
         """UI elementlarini yaratish"""
-        # Main layout - centers the stage
+        # Main layout
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # ============ STAGE (Main Container) ============
-        self.stage = QFrame()
-        self.stage.setObjectName("stage")
-        self.stage.setMinimumSize(1000, 560)
-        self.stage.setMaximumSize(1120, 700)
-        stage_layout = QVBoxLayout(self.stage)
-        stage_layout.setContentsMargins(0, 0, 0, 0)
-        stage_layout.setSpacing(0)
+        # ============ WRAPPER ============
+        wrapper = QWidget()
+        wrapper.setObjectName("wrapper")
+        wrapper_layout = QVBoxLayout(wrapper)
+        wrapper_layout.setContentsMargins(54, 34, 54, 18)
+        wrapper_layout.setSpacing(0)
 
-        # ============ HEADER ============
-        header_widget = QWidget()
-        header_widget.setObjectName("header_widget")
-        header_widget.setFixedHeight(110)
-        header_layout = QVBoxLayout(header_widget)
-        header_layout.setContentsMargins(24, 20, 24, 20)
-        header_layout.setSpacing(0)
-        header_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Header title
-        self.label_header_title = QLabel(
-            "Ruxsat etilgan xodimlarni tizimga kirishi uchun"
-        )
-        self.label_header_title.setObjectName("label_header_title")
-        self.label_header_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_layout.addWidget(self.label_header_title)
-
-        self.label_header_subtitle = QLabel("FACE ID tekshiruvi")
-        self.label_header_subtitle.setObjectName("label_header_subtitle")
-        self.label_header_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_layout.addWidget(self.label_header_subtitle)
-
-        stage_layout.addWidget(header_widget)
-
-        # ============ CONTENT ============
-        content_widget = QWidget()
-        content_widget.setObjectName("content_widget")
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(24, 24, 24, 24)
-        content_layout.setSpacing(0)
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # ============ PANEL ============
+        # ============ PANEL (Main container) ============
         self.panel = QFrame()
         self.panel.setObjectName("panel")
         panel_layout = QVBoxLayout(self.panel)
-        panel_layout.setContentsMargins(20, 20, 20, 20)
-        panel_layout.setSpacing(18)
-        panel_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        panel_layout.setContentsMargins(26, 26, 26, 26)
+        panel_layout.setSpacing(0)
 
-        # ============ CARDS GRID (7:5) ============
-        cards_widget = QWidget()
-        cards_widget.setObjectName("cards_widget")
-        cards_layout = QHBoxLayout(cards_widget)
-        cards_layout.setContentsMargins(8, 8, 8, 8)
-        cards_layout.setSpacing(20)
-        cards_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Cards row (left 5/12 + right 7/12)
+        cards_row = QHBoxLayout()
+        cards_row.setSpacing(22)
 
-        # ===== CAMERA WRAP (7fr) =====
-        self.camera_wrap = QFrame()
-        self.camera_wrap.setObjectName("camera_wrap")
-        camera_wrap_layout = QVBoxLayout(self.camera_wrap)
-        camera_wrap_layout.setContentsMargins(5, 5, 5, 5)
-        camera_wrap_layout.setSpacing(0)
+        # ============ LEFT WRAPPER CARD (5/12 columns) ============
+        self.left_wrapper_card = QFrame()
+        self.left_wrapper_card.setObjectName("left_wrapper_card")
+        left_wrapper_layout = QVBoxLayout(self.left_wrapper_card)
+        left_wrapper_layout.setContentsMargins(16, 16, 16, 16)
+        left_wrapper_layout.setSpacing(16)
 
-        # Glow Frame
-        self.glow_frame = QFrame()
-        self.glow_frame.setObjectName("glow_frame")
-        glow_layout = QVBoxLayout(self.glow_frame)
-        glow_layout.setContentsMargins(8, 8, 8, 8)
-        glow_layout.setSpacing(0)
-        glow_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # ===== ROW 1: Header Card (Logo + Title) =====
+        self.header_card = QFrame()
+        self.header_card.setObjectName("header_card")
+        header_card_layout = QHBoxLayout(self.header_card)
+        header_card_layout.setContentsMargins(20, 16, 20, 16)
+        header_card_layout.setSpacing(14)
+        header_card_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Video / Camera label (RoundedLabel for border-radius clipping)
-        self.label_face = RoundedLabel()
-        self.label_face.setObjectName("label_face")
-        self.label_face.setSizePolicy(
+        header_card_layout.addStretch()
+
+        # Logo image
+        self.logo_mark = QLabel()
+        self.logo_mark.setObjectName("logo_mark")
+        self._logo_pixmap = QPixmap("resources/images/logo_bba.png")
+        self.logo_mark.setPixmap(
+            self._logo_pixmap.scaled(
+                70,
+                70,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        self.logo_mark.setFixedSize(70, 70)
+        self.logo_mark.setScaledContents(False)
+        self.logo_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_card_layout.addWidget(self.logo_mark, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Logo text
+        self.logo_t1 = QLabel("Bilim va malakalarini\nbaholash agentligi")
+        self.logo_t1.setObjectName("logo_t1")
+        self.logo_t1.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        header_card_layout.addWidget(self.logo_t1, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        header_card_layout.addStretch()
+
+        # Stretch before cards to center vertically
+        left_wrapper_layout.addStretch()
+
+        left_wrapper_layout.addWidget(self.header_card)
+
+        # ===== ROW 2: Test Selection Card =====
+        self.card = QFrame()
+        self.card.setObjectName("card")
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(22, 22, 22, 22)
+        card_layout.setSpacing(0)
+
+        # Subtitle
+        self.label_sub = QLabel("PROCTORING TIZIMI")
+        self.label_sub.setObjectName("label_sub")
+        card_layout.addWidget(self.label_sub)
+
+        card_layout.addSpacing(18)
+
+        # Field title
+        self.label_field = QLabel("Testni tanlang")
+        self.label_field.setObjectName("label_field")
+        card_layout.addWidget(self.label_field)
+
+        card_layout.addSpacing(10)
+
+        # Select dropdown
+        self.combo_choose_test = QComboBox()
+        self.combo_choose_test.setObjectName("combo_choose_test")
+        self.combo_choose_test.setMinimumHeight(46)
+        self.combo_choose_test.setPlaceholderText("Testni tanlang")
+        card_layout.addWidget(self.combo_choose_test)
+
+        card_layout.addSpacing(14)
+
+        # Camera field title
+        self.label_camera_field = QLabel("Kamerani tanlang")
+        self.label_camera_field.setObjectName("label_camera_field")
+        card_layout.addWidget(self.label_camera_field)
+
+        card_layout.addSpacing(10)
+
+        # Camera select row (dropdown + refresh button)
+        camera_row = QHBoxLayout()
+        camera_row.setSpacing(8)
+        camera_row.setContentsMargins(0, 0, 0, 0)
+
+        self.combo_choose_camera = QComboBox()
+        self.combo_choose_camera.setObjectName("combo_choose_camera")
+        self.combo_choose_camera.setMinimumHeight(46)
+        self.combo_choose_camera.setPlaceholderText("Kamerani tanlang")
+        camera_row.addWidget(self.combo_choose_camera, 1)
+
+        self.btn_refresh_camera = QPushButton()
+        self.btn_refresh_camera.setObjectName("btn_refresh_camera")
+        self.btn_refresh_camera.setFixedSize(46, 46)
+        self.btn_refresh_camera.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_refresh_camera.setToolTip("Kameralarni yangilash")
+        self.btn_refresh_camera.setIcon(QIcon("resources/images/refresh.svg"))
+        self.btn_refresh_camera.setIconSize(QSize(22, 22))
+        camera_row.addWidget(self.btn_refresh_camera)
+
+        card_layout.addLayout(camera_row)
+
+        # Camera warning label
+        self.label_camera_warning = QLabel("Iltimos, kamerani tanlang!")
+        self.label_camera_warning.setObjectName("label_camera_warning")
+        self.label_camera_warning.hide()
+        card_layout.addWidget(self.label_camera_warning)
+
+        card_layout.addSpacing(14)
+
+        # Button
+        self.btn_next_page = QPushButton("Davom etish")
+        self.btn_next_page.setObjectName("btn_next_page")
+        self.btn_next_page.setMinimumHeight(48)
+        self.btn_next_page.setCursor(Qt.CursorShape.PointingHandCursor)
+        card_layout.addWidget(self.btn_next_page)
+
+        card_layout.addSpacing(14)
+
+        # Hint
+        hint_layout = QHBoxLayout()
+        hint_layout.setSpacing(10)
+        hint_layout.setContentsMargins(0, 0, 0, 0)
+        hint_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        self.hint_dot = QFrame()
+        self.hint_dot.setObjectName("hint_dot")
+        self.hint_dot.setFixedSize(18, 18)
+        hint_layout.addWidget(self.hint_dot)
+
+        self.hint_text = QLabel("Kamera va mikrofon ruxsati talab etiladi")
+        self.hint_text.setObjectName("hint_text")
+        hint_layout.addWidget(self.hint_text)
+        hint_layout.addStretch()
+
+        card_layout.addLayout(hint_layout)
+
+        left_wrapper_layout.addWidget(self.card)
+
+        # Stretch after card to center vertically
+        left_wrapper_layout.addStretch()
+
+        cards_row.addWidget(self.left_wrapper_card, 5)  # 5/12 columns
+
+        # ============ RIGHT IMAGE CARD (7/12 columns) ============
+        self.right_card = QFrame()
+        self.right_card.setObjectName("right_card")
+        right_card_layout = QVBoxLayout(self.right_card)
+        right_card_layout.setContentsMargins(10, 10, 10, 10)
+        right_card_layout.setSpacing(0)
+        right_card_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Main image - responsive with aspect ratio
+        self.illus_image = QLabel()
+        self.illus_image.setObjectName("illus_image")
+        self._original_pixmap = QPixmap("resources/images/page_main.png")
+        self.illus_image.setPixmap(self._original_pixmap)
+        self.illus_image.setScaledContents(False)
+        self.illus_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.illus_image.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        self.label_face.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        glow_layout.addWidget(self.label_face)
+        self.illus_image.setMinimumSize(200, 150)
+        right_card_layout.addWidget(self.illus_image)
 
-        # Scan line (overlay on video)
-        self.scan_line = ScanLine(self.label_face)
-        self.scan_line.setFixedHeight(36)  # Taller for glow effect
-        self.scan_line.raise_()
-        camera_wrap_layout.addWidget(self.glow_frame)
-        cards_layout.addWidget(self.camera_wrap, 7)
+        cards_row.addWidget(self.right_card, 7)  # 7/12 columns
 
-        # ===== FACE CARD (5fr) =====
-        self.face_card = QFrame()
-        self.face_card.setObjectName("face_card")
-        face_card_layout = QVBoxLayout(self.face_card)
-        face_card_layout.setContentsMargins(14, 14, 14, 14)
-        face_card_layout.setSpacing(0)
-        face_card_layout.setAlignment(
-            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
-        )
+        panel_layout.addLayout(cards_row, 1)
 
-        # Face Icon container
-        self.face_icon = QFrame()
-        self.face_icon.setObjectName("face_icon")
-        face_icon_layout = QVBoxLayout(self.face_icon)
-        face_icon_layout.setContentsMargins(8, 8, 8, 8)
-        face_icon_layout.setAlignment(
-            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
-        )
+        # Legacy compatibility
+        self.label_3 = self.right_card
 
-        # Face illustration (PNG with face landmarks)
-        self.label_illustration = QLabel()
-        self.label_illustration.setObjectName("label_illustration")
-        self.label_illustration.setPixmap(QPixmap("resources/images/face_icon.png"))
-        self.label_illustration.setScaledContents(True)
-        self.label_illustration.setFixedSize(280, 396)  # 350x496 aspect ratio
-        self.label_illustration.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        face_icon_layout.addWidget(self.label_illustration)
+        wrapper_layout.addWidget(self.panel, 1)
 
-        face_card_layout.addWidget(self.face_icon)
-        cards_layout.addWidget(self.face_card, 5)
+        main_layout.addWidget(wrapper, 1)
 
-        panel_layout.addWidget(cards_widget, 1)
+        # ============ FOOTER ============
+        footer = QWidget()
+        footer.setObjectName("footer")
+        footer.setFixedHeight(58)
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(0, 16, 0, 26)
 
-        # ============ STATUS BAR ============
-        self.status_bar = QFrame()
-        self.status_bar.setObjectName("status_bar")
-        self.status_bar.setFixedHeight(48)
-        status_layout = QHBoxLayout(self.status_bar)
-        status_layout.setContentsMargins(20, 0, 20, 0)
-        status_layout.setSpacing(12)
-        status_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        footer_layout.addStretch()
+        self.label_footer = QLabel("UZBMB  •  Safebrowser  •  Versiya 1.0")
+        self.label_footer.setObjectName("label_footer")
+        footer_layout.addWidget(self.label_footer)
+        footer_layout.addStretch()
 
-        # Pulse indicator
-        self.pulse_dot = QFrame()
-        self.pulse_dot.setObjectName("pulse_dot")
-        self.pulse_dot.setFixedSize(10, 10)
-        status_layout.addWidget(self.pulse_dot)
+        main_layout.addWidget(footer)
 
-        # Status text
-        self.label_response = QLabel("Yuzingizni kameraga ko'rsating...")
-        self.label_response.setObjectName("label_response")
-        self.label_response.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        status_layout.addWidget(self.label_response)
-
-        panel_layout.addWidget(self.status_bar)
-
-        content_layout.addWidget(self.panel)
-        stage_layout.addWidget(content_widget, 1)
-
-        main_layout.addWidget(self.stage)
-
-        # Legacy attributes for compatibility
-        self.label_org = self.label_header_title
-        self.label_9 = self.label_illustration
-        self.label_note = self.label_response
-
-    def _setup_animations(self):
-        """Setup all animations"""
-        # Start scan line animation after widget is shown
-        QTimer.singleShot(500, self._start_scan_animation)
-
-        # Setup pulse dot animation
-        self._setup_pulse_animation()
-
-    def _start_scan_animation(self):
-        """Start the scan line animation"""
-        if hasattr(self, "scan_line") and self.label_face.height() > 0:
-            self.scan_line.start_animation(self.label_face.height())
-
-    def _setup_pulse_animation(self):
-        """Setup pulse dot animation"""
-        # Apply opacity effect to pulse_dot
-        self.pulse_opacity_effect = QGraphicsOpacityEffect(self.pulse_dot)
-        self.pulse_dot.setGraphicsEffect(self.pulse_opacity_effect)
-
-        # Create animation group for smooth pulse
-        self.pulse_anim_group = QSequentialAnimationGroup(self)
-
-        # Fade out animation
-        self.pulse_fade_out = QPropertyAnimation(self.pulse_opacity_effect, b"opacity")
-        self.pulse_fade_out.setDuration(800)
-        self.pulse_fade_out.setStartValue(1.0)
-        self.pulse_fade_out.setEndValue(0.3)
-        self.pulse_fade_out.setEasingCurve(QEasingCurve.Type.InOutSine)
-
-        # Fade in animation
-        self.pulse_fade_in = QPropertyAnimation(self.pulse_opacity_effect, b"opacity")
-        self.pulse_fade_in.setDuration(800)
-        self.pulse_fade_in.setStartValue(0.3)
-        self.pulse_fade_in.setEndValue(1.0)
-        self.pulse_fade_in.setEasingCurve(QEasingCurve.Type.InOutSine)
-
-        self.pulse_anim_group.addAnimation(self.pulse_fade_out)
-        self.pulse_anim_group.addAnimation(self.pulse_fade_in)
-        self.pulse_anim_group.setLoopCount(-1)  # Infinite loop
-        self.pulse_anim_group.start()
-
-    def showEvent(self, event):
-        """Handle show event"""
-        super().showEvent(event)
-        QTimer.singleShot(100, self._start_scan_animation)
-        # Resume pulse animation
-        if hasattr(self, "pulse_anim_group"):
-            self.pulse_anim_group.start()
-
-    def hideEvent(self, event):
-        """Handle hide event - stop animations"""
-        super().hideEvent(event)
-        if hasattr(self, "scan_line"):
-            self.scan_line.stop_animation()
-        # Stop pulse animation
-        if hasattr(self, "pulse_anim_group"):
-            self.pulse_anim_group.stop()
+        # Legacy
+        self.label_logo_2 = self.logo_mark
+        self.label_6 = QLabel("")
 
     def _apply_styles(self):
-        """HTML page2.html stylelarini qo'llash"""
+        """Stylelarni qo'llash (HTML dan)"""
 
-        # ===== MAIN PAGE BACKGROUND =====
+        # ===== PAGE BACKGROUND #f3f7fb =====
         self.setStyleSheet("""
-            QWidget#page_home {
-                background: qradialgradient(cx:0.3, cy:0.25, radius:0.6,
-                    fx:0.3, fy:0.25,
-                    stop:0 rgba(102, 210, 176, 0.20),
+            QWidget#page_main {
+                background: qradialgradient(cx:0.7, cy:0.4, radius:0.6,
+                    fx:0.7, fy:0.4,
+                    stop:0 rgba(47, 154, 109, 0.10),
                     stop:1 transparent),
-                    qradialgradient(cx:0.7, cy:0.35, radius:0.6,
-                    fx:0.7, fy:0.35,
-                    stop:0 rgba(116, 214, 182, 0.18),
+                    qradialgradient(cx:0.25, cy:0.3, radius:0.6,
+                    fx:0.25, fy:0.3,
+                    stop:0 rgba(37, 99, 235, 0.08),
                     stop:1 transparent),
-                    qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #eef9f5, stop:1 #e6f5f0);
-                background-color: #eef9f5;
+                    #f3f7fb;
+                background-color: #f3f7fb;
             }
         """)
 
-        # ===== STAGE =====
-        self.stage.setStyleSheet("""
-            QFrame#stage {
-                background: rgba(255, 255, 255, 0.55);
-                border: 1px solid rgba(102, 210, 176, 0.30);
-                border-radius: 26px;
-            }
-        """)
-
-        # Stage shadow
-        stage_shadow = QGraphicsDropShadowEffect()
-        stage_shadow.setBlurRadius(60)
-        stage_shadow.setXOffset(0)
-        stage_shadow.setYOffset(26)
-        stage_shadow.setColor(QColor(0, 0, 0, 46))
-        self.stage.setGraphicsEffect(stage_shadow)
-
-        # ===== HEADER =====
-        self.findChild(QWidget, "header_widget").setStyleSheet("""
-            QWidget#header_widget {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(102, 210, 176, 0.18),
-                    stop:1 rgba(255, 255, 255, 0.12));
-                border-bottom: 1px solid rgba(102, 210, 176, 0.25);
-                border-top-left-radius: 26px;
-                border-top-right-radius: 26px;
-            }
-        """)
-
-        # Header title
-        self.label_header_title.setStyleSheet("""
-            QLabel#label_header_title {
-                color: #1a3a3a;
-                font-size: 22px;
-                font-weight: 700;
-                font-family: 'Inter', sans-serif;
+        # Wrapper
+        self.findChild(QWidget, "wrapper").setStyleSheet("""
+            QWidget#wrapper {
                 background: transparent;
+            }
+        """)
+
+        # ===== LEFT WRAPPER CARD =====
+        self.left_wrapper_card.setStyleSheet("""
+            QFrame#left_wrapper_card {
+                background: transparent;
+                border: none;
+                border-radius: 20px;
+            }
+        """)
+
+        # ===== HEADER CARD =====
+        self.header_card.setStyleSheet("""
+            QFrame#header_card {
+                background: #ffffff;
+                border: 1px solid rgba(15, 23, 42, 0.08);
+                border-radius: 16px;
+            }
+        """)
+
+        # Logo image
+        self.logo_mark.setStyleSheet("""
+            QLabel#logo_mark {
+                background: transparent;
+                border: none;
+            }
+        """)
+
+        # Logo t1 - bold uppercase
+        self.logo_t1.setStyleSheet("""
+            QLabel#logo_t1 {
+                color: #0f172a;
+                font-size: 20px;
+                font-weight: 800;
+                font-family: 'Inter', sans-serif;
                 letter-spacing: 0.3px;
-            }
-        """)
-
-        # Header subtitle (bold)
-        self.label_header_subtitle.setStyleSheet("""
-            QLabel#label_header_subtitle {
-                color: #1a3a3a;
-                font-size: 22px;
-                font-weight: 900;
-                font-family: 'Inter', sans-serif;
-                background: transparent;
-                letter-spacing: 0.5px;
-            }
-        """)
-
-        # ===== CONTENT =====
-        self.findChild(QWidget, "content_widget").setStyleSheet("""
-            QWidget#content_widget {
+                text-transform: uppercase;
                 background: transparent;
             }
         """)
@@ -485,99 +331,357 @@ class PageHome(QWidget):
         # ===== PANEL =====
         self.panel.setStyleSheet("""
             QFrame#panel {
-                background: rgba(255, 255, 255, 0.45);
-                border: 1px solid rgba(102, 210, 176, 0.20);
+                background: rgba(255, 255, 255, 0.55);
+                border: 1px solid rgba(15, 23, 42, 0.06);
                 border-radius: 22px;
             }
         """)
 
-        # ===== CAMERA WRAP =====
-        self.camera_wrap.setStyleSheet("""
-            QFrame#camera_wrap {
-                background: rgba(255, 255, 255, 0.55);
-                border: 1px solid rgba(102, 210, 176, 0.25);
+        # Panel shadow
+        panel_shadow = QGraphicsDropShadowEffect()
+        panel_shadow.setBlurRadius(45)
+        panel_shadow.setXOffset(0)
+        panel_shadow.setYOffset(18)
+        panel_shadow.setColor(QColor(15, 23, 42, 30))
+        self.panel.setGraphicsEffect(panel_shadow)
+
+        # ===== LEFT CARD =====
+        self.card.setStyleSheet("""
+            QFrame#card {
+                background: #ffffff;
+                border: 1px solid rgba(15, 23, 42, 0.08);
                 border-radius: 18px;
             }
         """)
 
-        # ===== GLOW FRAME =====
-        self.glow_frame.setStyleSheet("""
-            QFrame#glow_frame {
-                background: rgba(46, 154, 120, 0.08);
-                border: 2px solid rgba(102, 210, 176, 0.9);
-                border-radius: 16px;
-            }
-        """)
-
-        # Glow shadow
-        glow_shadow = QGraphicsDropShadowEffect()
-        glow_shadow.setBlurRadius(26)
-        glow_shadow.setXOffset(0)
-        glow_shadow.setYOffset(0)
-        glow_shadow.setColor(QColor(102, 210, 176, 153))
-        self.glow_frame.setGraphicsEffect(glow_shadow)
-
-        # ===== VIDEO / CAMERA =====
-        # Border va border-radius RoundedLabel.paintEvent() da chiziladi
-        self.label_face.setStyleSheet("""
-            QLabel#label_face {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #3a3a3a, stop:1 #777777);
-                border-radius: 10px;
-                border: 2px solid rgba(102, 210, 176, 0.9)
-            }
-        """)
-
-        # ===== SCAN LINE =====
-        # Custom paintEvent handles rendering with glow effect
-
-        # ===== FACE CARD =====
-        self.face_card.setStyleSheet("""
-            QFrame#face_card {
-                background: rgba(255, 255, 255, 0.7);
-                border: 1px solid rgba(102, 210, 176, 0.25);
-                border-radius: 18px;
-            }
-        """)
-
-        # ===== FACE ICON =====
-        self.face_icon.setStyleSheet("""
-            QFrame#face_icon {
-                background: transparent;
-                border: none;
-            }
-        """)
-
-        # ===== ILLUSTRATION =====
-        self.label_illustration.setStyleSheet("""
-            QLabel#label_illustration {
+        # Subtitle
+        self.label_sub.setStyleSheet("""
+            QLabel#label_sub {
+                color: #64748b;
+                font-size: 16px;
+                font-weight: 600;
+                font-family: 'Inter', sans-serif;
+                letter-spacing: 1.7px;
+                text-transform: uppercase;
                 background: transparent;
             }
         """)
 
-        # ===== STATUS BAR =====
-        self.status_bar.setStyleSheet("""
-            QFrame#status_bar {
-                background: transparent;
-                border: none;
-            }
-        """)
-
-        # ===== PULSE DOT =====
-        self.pulse_dot.setStyleSheet("""
-            QFrame#pulse_dot {
-                background: #74D6B6;
-                border-radius: 5px;
-            }
-        """)
-
-        # ===== STATUS TEXT =====
-        self.label_response.setStyleSheet("""
-            QLabel#label_response {
-                color: #234b4b;
-                font-size: 15px;
+        # Field title
+        self.label_field.setStyleSheet("""
+            QLabel#label_field {
+                color: #111827;
+                font-size: 16px;
+                font-weight: 700;
                 font-family: 'Inter', sans-serif;
                 background: transparent;
-                padding: 8px 0px;
             }
         """)
+
+        # Camera field title
+        self.label_camera_field.setStyleSheet("""
+            QLabel#label_camera_field {
+                color: #111827;
+                font-size: 16px;
+                font-weight: 700;
+                font-family: 'Inter', sans-serif;
+                background: transparent;
+            }
+        """)
+
+        # Camera ComboBox
+        self.combo_choose_camera.setStyleSheet("""
+            QComboBox#combo_choose_camera {
+                background-color: #f8fafc;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 0 14px;
+                font-size: 14px;
+                font-weight: 500;
+                font-family: 'Inter', sans-serif;
+                color: #0f172a;
+            }
+
+            QComboBox#combo_choose_camera:hover {
+                background-color: #ffffff;
+                border: 2px solid #2f9a6d;
+            }
+
+            QComboBox#combo_choose_camera:focus,
+            QComboBox#combo_choose_camera:on {
+                background-color: #ffffff;
+                border: 2px solid #2f9a6d;
+            }
+
+            QComboBox#combo_choose_camera::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: center right;
+                width: 36px;
+                border: none;
+                background: transparent;
+            }
+
+            QComboBox#combo_choose_camera::down-arrow {
+                image: url(resources/images/arrow-down.png);
+                width: 14px;
+                height: 14px;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView {
+                background-color: #ffffff;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                selection-background-color: #dcfce7;
+                selection-color: #0f172a;
+                padding: 8px;
+                outline: none;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView::item {
+                padding: 12px 14px;
+                border-radius: 8px;
+                min-height: 32px;
+                color: #0f172a;
+                background-color: transparent;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView::item:hover {
+                background-color: #f0fdf4;
+            }
+
+            QComboBox#combo_choose_camera QAbstractItemView::item:selected {
+                background-color: #dcfce7;
+                color: #166534;
+            }
+        """)
+
+        # Refresh camera button
+        self.btn_refresh_camera.setStyleSheet("""
+            QPushButton#btn_refresh_camera {
+                background-color: #f8fafc;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                font-size: 20px;
+                color: #64748b;
+            }
+
+            QPushButton#btn_refresh_camera:hover {
+                background-color: #ffffff;
+                border: 2px solid #2f9a6d;
+                color: #2f9a6d;
+            }
+
+            QPushButton#btn_refresh_camera:pressed {
+                background-color: #f0fdf4;
+                border: 2px solid #1f7f5a;
+                color: #1f7f5a;
+            }
+        """)
+
+        # Camera warning label
+        self.label_camera_warning.setStyleSheet("""
+            QLabel#label_camera_warning {
+                color: #dc2626;
+                font-size: 13px;
+                font-weight: 600;
+                font-family: 'Inter', sans-serif;
+                background: transparent;
+                padding: 4px 0px;
+            }
+        """)
+
+        # ComboBox
+        self.combo_choose_test.setStyleSheet("""
+            QComboBox#combo_choose_test {
+                background-color: #f8fafc;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 0 14px;
+                font-size: 14px;
+                font-weight: 500;
+                font-family: 'Inter', sans-serif;
+                color: #0f172a;
+            }
+
+            QComboBox#combo_choose_test:hover {
+                background-color: #ffffff;
+                border: 2px solid #2f9a6d;
+            }
+
+            QComboBox#combo_choose_test:focus,
+            QComboBox#combo_choose_test:on {
+                background-color: #ffffff;
+                border: 2px solid #2f9a6d;
+            }
+
+            QComboBox#combo_choose_test::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: center right;
+                width: 36px;
+                border: none;
+                background: transparent;
+            }
+
+            QComboBox#combo_choose_test::down-arrow {
+                image: url(resources/images/arrow-down.png);
+                width: 14px;
+                height: 14px;
+            }
+
+            QComboBox#combo_choose_test QAbstractItemView {
+                background-color: #ffffff;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                selection-background-color: #dcfce7;
+                selection-color: #0f172a;
+                padding: 8px;
+                outline: none;
+            }
+
+            QComboBox#combo_choose_test QAbstractItemView::item {
+                padding: 12px 14px;
+                border-radius: 8px;
+                min-height: 32px;
+                color: #0f172a;
+                background-color: transparent;
+            }
+
+            QComboBox#combo_choose_test QAbstractItemView::item:hover {
+                background-color: #f0fdf4;
+            }
+
+            QComboBox#combo_choose_test QAbstractItemView::item:selected {
+                background-color: #dcfce7;
+                color: #166534;
+            }
+        """)
+
+        # Button - green gradient
+        self.btn_next_page.setStyleSheet("""
+            QPushButton#btn_next_page {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #2f9a6d, stop:1 #1f7f5a);
+                color: #ffffff;
+                border: none;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 800;
+                font-family: 'Inter', sans-serif;
+                letter-spacing: 0.2px;
+            }
+
+            QPushButton#btn_next_page:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #34a876, stop:1 #2f9a6d);
+            }
+
+            QPushButton#btn_next_page:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #1f7f5a, stop:1 #1b7b56);
+            }
+        """)
+
+        # Button shadow
+        btn_shadow = QGraphicsDropShadowEffect()
+        btn_shadow.setBlurRadius(24)
+        btn_shadow.setXOffset(0)
+        btn_shadow.setYOffset(12)
+        btn_shadow.setColor(QColor(47, 154, 109, 64))
+        self.btn_next_page.setGraphicsEffect(btn_shadow)
+
+        # Hint dot
+        self.hint_dot.setStyleSheet("""
+            QFrame#hint_dot {
+                background: rgba(47, 154, 109, 0.10);
+                border: 1px solid rgba(47, 154, 109, 0.18);
+                border-radius: 8px;
+            }
+        """)
+
+        # Hint text
+        self.hint_text.setStyleSheet("""
+            QLabel#hint_text {
+                color: #64748b;
+                font-size: 13px;
+                font-weight: 400;
+                font-family: 'Inter', sans-serif;
+                line-height: 1.35;
+                background: transparent;
+            }
+        """)
+
+
+        # ===== RIGHT IMAGE CARD =====
+        self.right_card.setStyleSheet("""
+            QFrame#right_card {
+                background: transparent;
+                border: none;
+                border-radius: 20px;
+            }
+        """)
+
+        # Image style
+        self.illus_image.setStyleSheet("""
+            QLabel#illus_image {
+                background: transparent;
+                border-radius: 18px;
+            }
+        """)
+
+        # ===== FOOTER =====
+        self.findChild(QWidget, "footer").setStyleSheet("""
+            QWidget#footer {
+                background: transparent;
+            }
+        """)
+
+        # Footer text
+        self.label_footer.setStyleSheet("""
+            QLabel#label_footer {
+                color: rgba(100, 116, 139, 0.9);
+                font-size: 13px;
+                font-weight: 600;
+                font-family: 'Inter', sans-serif;
+                background: transparent;
+            }
+        """)
+
+    def resizeEvent(self, event):
+        """Rasmni ekranga mos ravishda o'lchamlash"""
+        super().resizeEvent(event)
+        self._update_image_size()
+
+    def showEvent(self, event):
+        """Sahifa ko'rsatilganda rasmni yangilash"""
+        super().showEvent(event)
+        self._update_image_size()
+
+    def _update_image_size(self):
+        """Rasmni aspect ratio saqlab o'lchamlash"""
+        if hasattr(self, "_original_pixmap") and not self._original_pixmap.isNull():
+            available_size = self.illus_image.size()
+            scaled_pixmap = self._original_pixmap.scaled(
+                available_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self.illus_image.setPixmap(scaled_pixmap)
+
+    def _setup_connections(self):
+        """Signallarni ulash"""
+        self.combo_choose_camera.currentIndexChanged.connect(self._on_camera_changed)
+
+    def _on_camera_changed(self):
+        """Kamera tanlanganda warningni yashirish"""
+        camera_data = self.combo_choose_camera.currentData()
+        if camera_data is not None and camera_data != -1:
+            self.label_camera_warning.hide()
+
+    def validate_camera(self):
+        """Kamera tanlanganligini tekshirish. True - tanlangan, False - tanlanmagan"""
+        camera_data = self.combo_choose_camera.currentData()
+        if camera_data is None or camera_data == -1:
+            self.label_camera_warning.show()
+            return False
+        self.label_camera_warning.hide()
+        return True

@@ -13,6 +13,7 @@ from workers.internet_checker import InternetCheckWorker
 from workers.monitor_checker import MonitorWorker
 from workers.screen_recorder import ScreenRecorderWorker
 from workers.loader import AppLoaderWorker, TestLoaderWorker
+from workers.person_detector import PersonDetectorWorker
 
 __all__ = [
     "CameraCheckerWorker",
@@ -25,4 +26,5 @@ __all__ = [
     "ScreenRecorderWorker",
     "AppLoaderWorker",
     "TestLoaderWorker",
+    "PersonDetectorWorker",
 ]

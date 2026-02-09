@@ -290,8 +290,8 @@ class ToastManager:
         toast.closed.connect(lambda: self._on_toast_closed(toast))
 
         self.toasts.append(toast)
-        self._reposition_toasts()
         toast.show_toast(self.parent)
+        self._reposition_toasts()
 
         return toast
 
@@ -303,19 +303,34 @@ class ToastManager:
             self._reposition_toasts()
 
     def _reposition_toasts(self):
-        """Barcha toast'larni qayta joylashtirish"""
+        """Barcha toast'larni qayta joylashtirish (position-aware)"""
         if not self.parent:
             return
 
         margin = 20
-        current_y = margin
+        parent_rect = self.parent.rect()
+
+        # Bottom toastlar uchun — pastdan yuqoriga
+        bottom_y = parent_rect.height() - margin
+        # Top toastlar uchun — yuqoridan pastga
+        top_y = margin
 
         for toast in self.toasts:
-            if toast.isVisible():
-                parent_rect = self.parent.rect()
+            if not toast.isVisible():
+                continue
+
+            if "right" in toast.position:
                 x = parent_rect.width() - toast.width() - margin
-                toast.move(x, current_y)
-                current_y += toast.height() + self.spacing
+            else:
+                x = margin
+
+            if "bottom" in toast.position:
+                bottom_y -= toast.height()
+                toast.move(x, bottom_y)
+                bottom_y -= self.spacing
+            else:
+                toast.move(x, top_y)
+                top_y += toast.height() + self.spacing
 
     def clear_all(self):
         """Barcha toast'larni yopish"""

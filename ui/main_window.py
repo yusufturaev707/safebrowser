@@ -21,6 +21,7 @@ from workers import (
     ScreenRecorderWorker,
     AppLoaderWorker,
     TestLoaderWorker,
+    PersonDetectorWorker,
 )
 from utils.graphics import (
     create_success_pixmap,
@@ -493,7 +494,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # User data
         self.im = None
-        self.test_url = 'https://ejournal.uzbmb.uz/123'
+        self.test_url = None
         self.image_base64 = None
         self.cropped_face = None
         self.score = 0
@@ -560,6 +561,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.face_staff_worker = None
         self.camera1_worker = None
         self.screen_recorder_worker = None
+        self.person_detector_worker = None
         self.load_app_worker = None
         self.test_loader_worker = None
 
@@ -569,8 +571,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _init_face_analyzer(self):
         """InsightFace modelini yuklash"""
         try:
-            debug("InsightFace modeli yuklanmoqda...")
-            self.face_analyzer = FaceAnalyzer(det_size=(640, 640), gpu_id=-1)
+            gpu_id = FaceAnalyzer.detect_best_device()
+            debug(f"InsightFace modeli yuklanmoqda... (gpu_id={gpu_id})")
+            self.face_analyzer = FaceAnalyzer(det_size=(640, 640), gpu_id=gpu_id)
 
             if self.face_analyzer.initialize():
                 self.app = self.face_analyzer.app
@@ -648,6 +651,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """)
 
         self.btn_next_page.clicked.connect(self._on_staff_face_page)
+        self.btn_refresh_camera.clicked.connect(self._load_cameras)
 
     def _setup_id_card(self):
         """ID karta dizaynini sozlash"""
@@ -757,6 +761,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.face_staff_worker,
             self.camera1_worker,
             self.screen_recorder_worker,
+            self.person_detector_worker,
             self.load_app_worker,
             self.test_loader_worker,
         ]
@@ -1096,6 +1101,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Test tanlanganligini tekshirish
             if current_index == 0 or test_data is None:
                 self.show_message("Ogohlantirish", "Iltimos, testni tanlang!", 1)
+                return
+
+            # Kamera tanlanganligini tekshirish
+            if not self.page_main.validate_camera():
                 return
 
             # Tanlangan kamera indexni saqlash
@@ -1471,6 +1480,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.camera1_worker = Camera1Worker(app=self.app)
             self.camera1_worker.result_ready.connect(self._on_monitoring_result)
 
+            # PersonDetectorWorker - YOLO orqali odam sonini tekshirish
+            self.person_detector_worker = PersonDetectorWorker()
+            self.person_detector_worker.person_count_changed.connect(self._on_person_count_changed)
+            self.person_detector_worker.start()
+
             debug(f"Face monitoring boshlandi:")
             debug(f"  - Detection interval: {self.face_detection_interval}s")
             debug(f"  - Detection max fail: {self.face_detection_max_fail}")
@@ -1492,6 +1506,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.current_is_verified = False
         self.last_face_detection_time = time.time()
         self.last_face_identification_time = time.time()
+        self.current_person_count = 1  # Optimistik: YOLO yuklanguncha odam bor deb hisoblaymiz
+        self.person_warning_shown = False
 
     def _stop_face_monitoring(self):
         """Face monitoring'ni to'xtatish"""
@@ -1511,40 +1527,54 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if self.camera1_worker and self.camera1_worker.isRunning():
                 self.camera1_worker.stop()
 
+            if self.person_detector_worker and self.person_detector_worker.isRunning():
+                self.person_detector_worker.stop()
+
             debug("Face monitoring to'xtatildi")
         except Exception as e:
             debug(f"Stop face monitoring error: {e}")
 
     def _check_face_status(self):
         """
-        Face Detection tekshiruvi
-        Faqat yuz YO'Q bo'lganda ishlaydi
+        Person Detection tekshiruvi (YOLO orqali)
+        Faqat odam YO'Q bo'lganda ishlaydi
         """
         try:
+            # Allaqachon detection warning mode da — faqat recovery tekshirish
+            if self.face_monitoring_mode == "detection":
+                if self.current_person_count >= 1:
+                    self.face_monitoring_mode = "ok"
+                    self.face_detection_fail_count = 0
+                    if self.toast_manager:
+                        self.toast_manager.clear_all()
+                    debug("[DETECTION] Odam qaytdi - OK mode")
+                return
+
             # Agar identification mode da bo'lsa - detection to'xtab turadi
             if self.face_monitoring_mode == "identification":
                 return
 
-            if not self.current_has_face:
+            # YOLO person count orqali tekshirish
+            if self.current_person_count == 0:
                 self.face_detection_fail_count += 1
-                debug(f"[DETECTION] Yuz yo'q: {self.face_detection_fail_count}/{self.face_detection_max_fail}")
+                debug(f"[DETECTION] Odam yo'q: {self.face_detection_fail_count}/{self.face_detection_max_fail}")
 
                 if self.face_detection_fail_count >= self.face_detection_max_fail:
                     self.face_monitoring_mode = "detection"
                     self._show_face_warning_toast(
-                        "Yuz aniqlanmadi! Iltimos, kameraga qarang.",
+                        "Kamera oldida talabgor topilmadi!",
                         warning_type="detection"
                     )
                     self.face_detection_fail_count = 0
             else:
-                # Yuz aniqlandi - fail count kamaytirish
+                # Odam aniqlandi - fail count reset
                 if self.face_detection_fail_count > 0:
-                    self.face_detection_fail_count -= 1
+                    self.face_detection_fail_count = 0
 
-                # Yuz aniqlandi - identification timer'ni yoqish
+                # Odam aniqlandi - identification timer'ni yoqish
                 if not self.face_identification_timer.isActive():
                     self.face_identification_timer.start(self.face_identification_interval * 1000)
-                    debug("[DETECTION] Yuz aniqlandi - Identification timer yoqildi")
+                    debug("[DETECTION] Odam aniqlandi - Identification timer yoqildi")
 
         except Exception as e:
             debug(f"Check face status error: {e}")
@@ -1552,18 +1582,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _check_face_identity(self):
         """
         Face Identification tekshiruvi
-        Faqat yuz BOR, lekin tanilMAGAN bo'lganda ishlaydi
+        Faqat odam BOR, lekin yuz tanilMAGAN bo'lganda ishlaydi
         """
         try:
+            # Allaqachon identification warning mode da — faqat recovery tekshirish
+            if self.face_monitoring_mode == "identification":
+                if self.current_is_verified:
+                    self.face_monitoring_mode = "ok"
+                    self.face_identification_fail_count = 0
+                    if self.toast_manager:
+                        self.toast_manager.clear_all()
+                    debug("[IDENTIFICATION] Yuz tanilib - OK mode ga qaytdi")
+                return
+
             # Agar detection mode da bo'lsa - identification to'xtab turadi
             if self.face_monitoring_mode == "detection":
                 return
 
-            # Agar yuz yo'q bo'lsa - identification to'xtatib, detection ga o'tish
-            if not self.current_has_face:
+            # Agar odam yo'q bo'lsa (YOLO) - identification to'xtatib, detection ga o'tish
+            if self.current_person_count == 0:
                 self.face_identification_timer.stop()
                 self.face_identification_fail_count = 0
-                debug("[IDENTIFICATION] Yuz yo'q - Detection mode ga qaytish")
+                debug("[IDENTIFICATION] Odam yo'q - Detection mode ga qaytish")
                 return
 
             if not self.current_is_verified:
@@ -1579,9 +1619,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     )
                     self.face_identification_fail_count = 0
             else:
-                # Yuz tanilib - fail count kamaytirish
+                # Yuz tanilib - fail count reset
                 if self.face_identification_fail_count > 0:
-                    self.face_identification_fail_count -= 1
+                    self.face_identification_fail_count = 0
 
                 # Hammasi yaxshi
                 if self.face_monitoring_mode != "ok":
@@ -1604,12 +1644,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     break
 
             if page_test and self.toast_manager:
+                # Oldingi toastlarni tozalash — ustma-ust tushmasligi uchun
+                self.toast_manager.clear_all()
+
                 toast_type = "warning" if warning_type == "detection" else "error"
                 toast = self.toast_manager.show_toast(
                     message=message,
                     toast_type=toast_type,
                     duration=5000 if not show_modal_after else 0,
-                    position="top-right"
+                    position="bottom-right"
                 )
 
                 if show_modal_after:
@@ -1739,6 +1782,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         score=self.score
                     )
 
+            # PersonDetectorWorker ga raw frame yuborish (YOLO odam soni tekshiruvi)
+            raw_frame = data.get("raw_frame")
+            if raw_frame is not None and self.person_detector_worker and self.person_detector_worker.isRunning():
+                self.person_detector_worker.set_frame(raw_frame)
+
             # Agar yuz yo'q bo'lsa, identification natijasini ham reset qilish
             if not has_face:
                 self.current_is_verified = False
@@ -1762,3 +1810,39 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             debug(f"Monitoring result error: {e}")
+
+    @pyqtSlot(object)
+    def _on_person_count_changed(self, data: dict):
+        """YOLO orqali aniqlangan odam soni o'zgarganda"""
+        try:
+            count = data.get("count", 0)
+            self.current_person_count = count
+
+            if count == 0:
+                # Timer (_check_face_status) orqali warning chiqadi
+                debug("[PERSON_DETECT] Kamera oldida hech kim yo'q")
+
+            elif count > 1:
+                debug(f"[PERSON_DETECT] Kamera oldida {count} ta odam aniqlandi!")
+
+                if not self.person_warning_shown:
+                    self.person_warning_shown = True
+
+                    if self.toast_manager:
+                        self.toast_manager.clear_all()
+                        self.toast_manager.show_toast(
+                            message=f"Kamera oldida {count} ta odam aniqlandi! Faqat 1 ta odam bo'lishi kerak.",
+                            toast_type="error",
+                            duration=5000,
+                            position="bottom-right"
+                        )
+
+                    self._send_warning_to_server(
+                        f"Kamera oldida {count} ta odam aniqlandi"
+                    )
+            else:
+                # count == 1: normal holat — warning reset
+                self.person_warning_shown = False
+
+        except Exception as e:
+            debug(f"Person count changed error: {e}")

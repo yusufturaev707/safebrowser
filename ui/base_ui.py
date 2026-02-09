@@ -91,6 +91,7 @@ class Ui_MainWindow(object):
         self.combo_choose_test = self.page_main.combo_choose_test
         self.combo_choose_camera = self.page_main.combo_choose_camera
         self.btn_next_page = self.page_main.btn_next_page
+        self.btn_refresh_camera = self.page_main.btn_refresh_camera
         self.label_3 = self.page_main.label_3
 
         # Page Home elements
