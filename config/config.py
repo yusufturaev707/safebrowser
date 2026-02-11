@@ -100,29 +100,19 @@ class Config:
 
     # Face Monitoring properties
     @property
-    def face_detection_interval(self) -> int:
-        """Face detection intervali (soniyada)"""
-        return self.getint("FACE_MONITORING", "detection_interval", fallback=30)
-
-    @property
-    def face_detection_max_fail(self) -> int:
-        """Face detection maksimal fail soni"""
-        return self.getint("FACE_MONITORING", "detection_max_fail", fallback=5)
-
-    @property
     def face_identification_interval(self) -> int:
         """Face identification intervali (soniyada)"""
-        return self.getint("FACE_MONITORING", "identification_interval", fallback=60)
+        return self.getint("FACE_MONITORING", "identification_interval", fallback=10)
 
     @property
     def face_identification_max_fail(self) -> int:
         """Face identification maksimal fail soni"""
-        return self.getint("FACE_MONITORING", "identification_max_fail", fallback=5)
+        return self.getint("FACE_MONITORING", "identification_max_fail", fallback=3)
 
     @property
-    def face_warning_timeout(self) -> int:
-        """Warning timeout (soniyada)"""
-        return self.getint("FACE_MONITORING", "warning_timeout", fallback=30)
+    def face_monitoring_score(self) -> int:
+        """Test paytidagi minimal o'xshashlik foizi"""
+        return self.getint("FACE_MONITORING", "monitoring_score", fallback=39)
 
 
 # Singleton instance

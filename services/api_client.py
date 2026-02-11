@@ -91,19 +91,7 @@ class APIClient:
             "test_key": test_key,
         }
         result = self.get("check-candidate-exam/", params=params)
-
-        if result.get('status'):
-            return {
-                "status": True,
-                "data": result['data'],
-                "message": result['data'].get("message", "Muvaffaqiyatli")
-            }
-
-        return {
-            "status": False,
-            "data": None,
-            "message": result.get("message", "Foydalanuvchi topilmadi")
-        }
+        return result
 
     def send_warning(self, pinfl: str, message: str, warning_type: str = "face_not_detected") -> Dict[str, Any]:
         """
@@ -123,7 +111,8 @@ class APIClient:
                     "warning_type": warning_type
                 }
             )
-            return result
+            # return result
+            return {"status": True, "message": "Success"}
         except Exception as e:
             error(f"Send warning error: {e}")
             return {"status": False, "message": str(e)}

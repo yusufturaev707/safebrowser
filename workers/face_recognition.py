@@ -232,7 +232,7 @@ class CPUOptimizedFaceIdWorker(QThread):
                 "is_verified": is_match,
                 "similarity": similarity_percent,
                 "threshold": score,
-                "ps_embedding": live_embedding.tolist() if is_match else None,
+                "ps_embedding": np.array(live_embedding) if is_match else None,
                 "message": f"O'xshashlik: {similarity_percent}%"
             })
 
@@ -496,12 +496,9 @@ class Camera1Worker(QThread):
 
                     ps_embedding, cropped_face = self._get_data()
 
-                    if ps_embedding is None or cropped_face is None:
-                        self.result_ready.emit({
-                            "is_verified": False,
-                            "message": "Ma'lumot yo'q"
-                        })
-                    else:
+                    # Ma'lumot yo'q — bu "tanilmadi" emas, shunchaki frame kelmagan
+                    # Signal emit qilmaslik — monitoring holatini o'zgartirmaslik
+                    if ps_embedding is not None and cropped_face is not None:
                         result = self._verify_face(ps_embedding, cropped_face)
                         self.result_ready.emit(result)
 
