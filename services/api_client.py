@@ -58,7 +58,7 @@ class APIClient:
             }
 
         try:
-            return { "status": True, "data": response.json()}
+            return {"status": True, "data": response.json()}
         except ValueError:
             return {"status": False, "message": "JSON parse xatoligi"}
 
@@ -93,26 +93,46 @@ class APIClient:
         result = self.get("check-candidate-exam/", params=params)
         return result
 
-    def send_warning(self, pinfl: str, message: str, warning_type: str = "face_not_detected") -> Dict[str, Any]:
+    def send_bulk_warning(self, exam_key: str, imei: str, warning_type: str,
+                          description: str, confidence: float,
+                          ip_address: str, mac_address: str) -> Dict[str, Any]:
         """
-        Serverga ogohlantirish yuborish
+        Bulk warning API ga ogohlantirish yuborish
 
-        Args:
-            pinfl: Nomzod JSHSHIR raqami
-            message: Ogohlantirish xabari
-            warning_type: Ogohlantirish turi (face_not_detected, face_mismatch, etc.)
+        Returns:
+            {status: True, task_id: "..."} yoki {status: False, message: "..."}
         """
         try:
             result = self.post(
-                "candidate-warning/",
+                "bulk-send-warning-notification/",
                 json={
-                    "candidate": pinfl,
-                    "message": message,
-                    "warning_type": warning_type
+                    "warnings":[
+                        {
+                            "exam_key": exam_key,
+                            "imei": imei,
+                            "warning_type": warning_type,
+                            "description": description,
+                            "confidence": confidence,
+                            "ip_address": ip_address,
+                            "mac_address": str(mac_address).upper()
+                        }
+                    ]
                 }
             )
-            # return result
-            return {"status": True, "message": "Success"}
+            if result.get("status"):
+                data = result.get("data", {})
+                task_id = data.get("task_id")
+                return {"status": True, "task_id": task_id}
+            return result
         except Exception as e:
-            error(f"Send warning error: {e}")
+            error(f"Send bulk warning error: {e}")
             return {"status": False, "message": str(e)}
+
+    def check_warning_task_status(self, task_id: str) -> Dict[str, Any]:
+        """
+        Bulk warning task statusini tekshirish
+
+        Returns:
+            {status: True, data: {state: "SUCCESS/PENDING/STARTED/FAILURE", ...}}
+        """
+        return self.get(f"bulk-warning-task-status/{task_id}/")

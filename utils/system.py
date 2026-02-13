@@ -4,6 +4,8 @@ Cross-platform qo'llab-quvvatlash
 """
 import sys
 import platform
+import subprocess
+import re
 import psutil
 from pathlib import Path
 from typing import Tuple, Optional
@@ -345,6 +347,163 @@ def get_disk_with_most_free_space() -> Tuple[Optional[str], int]:
             continue
 
     return best_path, max_free
+
+
+def _parse_windows_ipconfig() -> str:
+    """
+    Windows: ipconfig outputdan gateway bilan bir subnetdagi IPv4 ni topish.
+    vEthernet/WSL adapterlarni o'tkazib yuboradi.
+    """
+    result = subprocess.run(
+        ['ipconfig'], capture_output=True, timeout=5,
+        creationflags=subprocess.CREATE_NO_WINDOW
+    )
+    text = result.stdout.decode('cp866', errors='replace')
+    lines = text.splitlines()
+
+    # Adapter bloklarini ajratish (bo'sh qator = blok chegarasi, header = indent yo'q)
+    adapter_blocks = []
+    current_header = ""
+    current_lines = []
+    for line in lines:
+        if line and not line.startswith(' '):
+            # Yangi adapter header
+            if current_lines:
+                adapter_blocks.append((current_header, current_lines))
+            current_header = line
+            current_lines = []
+        else:
+            current_lines.append(line)
+    if current_lines:
+        adapter_blocks.append((current_header, current_lines))
+
+    for header, block_lines in adapter_blocks:
+        # Virtual adapterlarni o'tkazish
+        if any(x in header for x in ['vEthernet', 'WSL', 'Loopback', 'VPN']):
+            continue
+
+        # Blokdan IPv4 va Gateway olish
+        ipv4_list = []
+        gateway = None
+        for line in block_lines:
+            ip_match = re.search(r'IPv4.*?:\s*(\d+\.\d+\.\d+\.\d+)', line)
+            if ip_match:
+                ipv4_list.append(ip_match.group(1))
+                continue
+            # Gateway qatori: subnet emas (255.x bo'lmagan), IPv4 emas
+            if 'IPv4' not in line and '255.' not in line:
+                gw_match = re.search(r':\s*(\d+\.\d+\.\d+\.\d+)', line)
+                if gw_match:
+                    gateway = gw_match.group(1)
+
+        if not gateway or not ipv4_list:
+            continue
+
+        # Gateway bilan bir subnetdagi IP ni tanlash (birinchi 3 oktet mos)
+        gw_prefix = gateway.rsplit('.', 1)[0]  # "192.168.0"
+        for ip in ipv4_list:
+            if ip.rsplit('.', 1)[0] == gw_prefix:
+                return ip
+
+        # Agar subnet match bo'lmasa, oxirgi IPv4 ni qaytarish
+        return ipv4_list[-1]
+
+    return ""
+
+
+def get_ip_address() -> str:
+    """
+    OS darajasida local IP addressni olish
+    Windows: ipconfig, Linux: ip route, macOS: ipconfig getifaddr
+    """
+    try:
+        if is_windows():
+            ip = _parse_windows_ipconfig()
+            if ip:
+                return ip
+
+        elif is_linux():
+            result = subprocess.run(
+                ['ip', 'route', 'get', '8.8.8.8'],
+                capture_output=True, text=True, timeout=5
+            )
+            match = re.search(r'src\s+(\d+\.\d+\.\d+\.\d+)', result.stdout)
+            if match:
+                return match.group(1)
+
+        elif is_macos():
+            for iface in ('en0', 'en1'):
+                result = subprocess.run(
+                    ['ipconfig', 'getifaddr', iface],
+                    capture_output=True, text=True, timeout=5
+                )
+                ip = result.stdout.strip()
+                if ip and re.match(r'^\d+\.\d+\.\d+\.\d+$', ip):
+                    return ip
+
+    except Exception as e:
+        debug(f"OS orqali IP olishda xatolik: {e}")
+
+    return "0.0.0.0"
+
+
+def get_mac_address() -> str:
+    """
+    OS darajasida MAC addressni olish (XX:XX:XX:XX:XX:XX formatda)
+    Windows: getmac, Linux: ip link, macOS: ifconfig
+    """
+    try:
+        if is_windows():
+            result = subprocess.run(
+                ['powershell', '-Command',
+                 "(Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object -First 1).MacAddress"],
+                capture_output=True, text=True, timeout=5,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            mac = result.stdout.strip()
+            if mac:
+                # Windows format: AA-BB-CC-DD-EE-FF -> AA:BB:CC:DD:EE:FF
+                return mac.replace('-', ':').lower()
+
+        elif is_linux():
+            # Default route interface ni topib, uning MAC ini olish
+            result = subprocess.run(
+                ['ip', 'route', 'get', '8.8.8.8'],
+                capture_output=True, text=True, timeout=5
+            )
+            dev_match = re.search(r'dev\s+(\S+)', result.stdout)
+            if dev_match:
+                iface = dev_match.group(1)
+                result = subprocess.run(
+                    ['ip', 'link', 'show', iface],
+                    capture_output=True, text=True, timeout=5
+                )
+                mac_match = re.search(r'link/ether\s+([\da-f:]+)', result.stdout)
+                if mac_match:
+                    return mac_match.group(1)
+
+        elif is_macos():
+            # en0 yoki en1 interface MAC ni olish
+            result = subprocess.run(
+                ['ifconfig', 'en0'],
+                capture_output=True, text=True, timeout=5
+            )
+            mac_match = re.search(r'ether\s+([\da-f:]+)', result.stdout)
+            if mac_match:
+                return mac_match.group(1)
+            # en0 bo'lmasa en1
+            result = subprocess.run(
+                ['ifconfig', 'en1'],
+                capture_output=True, text=True, timeout=5
+            )
+            mac_match = re.search(r'ether\s+([\da-f:]+)', result.stdout)
+            if mac_match:
+                return mac_match.group(1)
+
+    except Exception as e:
+        debug(f"OS orqali MAC olishda xatolik: {e}")
+
+    return "00:00:00:00:00:00"
 
 
 def get_system_info() -> dict:

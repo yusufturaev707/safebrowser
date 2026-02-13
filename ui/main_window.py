@@ -32,7 +32,7 @@ from config import config
 from utils.system import get_disk_with_most_free_space
 from services.api_client import APIClient
 from core.face_analyzer import FaceAnalyzer
-from utils.system import is_windows, is_linux, is_macos, get_platform_name, get_available_cameras
+from utils.system import is_windows, is_linux, is_macos, get_platform_name, get_available_cameras, get_ip_address, get_mac_address
 from utils.logger import get_logger, info, debug, warning, error, exception
 
 # Logger
@@ -1528,27 +1528,60 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         except Exception as e:
             debug(f"Show identification warning error: {e}")
 
-    def _send_warning_to_server(self, message: str):
-        """Serverga warning yuborish"""
+    def _send_warning_to_server(self, description: str, warning_type: str, confidence: float = 0.0):
+        """Bulk warning API ga ogohlantirish yuborish"""
         try:
             if not self.im:
                 debug("Warning yuborilmadi: PINFL mavjud emas")
                 return
 
             api_client = APIClient(base_url=self.base_url)
-            result = api_client.send_warning(
-                pinfl=self.im,
-                message=message,
-                warning_type="face_monitoring_failed"
+            result = api_client.send_bulk_warning(
+                exam_key=self.chosen_test_key or "",
+                imei=self.im,
+                warning_type=warning_type,
+                description=description,
+                confidence=confidence,
+                ip_address=get_ip_address(),
+                mac_address=get_mac_address()
             )
 
             if result.get("status"):
-                debug(f"Warning serverga yuborildi: {message}")
+                task_id = result.get("task_id")
+                debug(f"Bulk warning yuborildi: {description} (task_id={task_id})")
+                if task_id:
+                    QTimer.singleShot(3000, lambda: self._poll_warning_status(task_id))
             else:
                 debug(f"Warning yuborishda xatolik: {result.get('message')}")
 
         except Exception as e:
             debug(f"Send warning to server error: {e}")
+
+    def _poll_warning_status(self, task_id: str, attempt: int = 0):
+        """Bulk warning task statusini polling qilish"""
+        max_attempts = 10
+        try:
+            if attempt >= max_attempts:
+                debug(f"Warning polling timeout: task_id={task_id} ({max_attempts} attempt)")
+                return
+
+            api_client = APIClient(base_url=self.base_url)
+            result = api_client.check_warning_task_status(task_id)
+
+            if result.get("status"):
+                data = result.get("data", {})
+                state = data.get("state", "UNKNOWN")
+                debug(f"Warning task status: {state} (task_id={task_id}, attempt={attempt + 1})")
+
+                if state in ("SUCCESS", "FAILURE"):
+                    return
+                # PENDING/STARTED — davom etish
+                QTimer.singleShot(3000, lambda: self._poll_warning_status(task_id, attempt + 1))
+            else:
+                debug(f"Warning status tekshirishda xatolik: {result.get('message')}")
+
+        except Exception as e:
+            debug(f"Poll warning status error: {e}")
 
     @pyqtSlot(object)
     def _on_monitoring_face_detected(self, data: dict):
@@ -1620,7 +1653,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                     # 2. Serverga yuborish
                     self._send_warning_to_server(
-                        f"Yuz tanilmadi - {self.face_identification_max_fail} marta ketma-ket fail"
+                        description=f"Yuz tanilmadi - {self.face_identification_max_fail} marta ketma-ket fail",
+                        warning_type="no_face",
+                        confidence=similarity
                     )
 
                     # 3. Counter reset — monitoring qaytadan boshlanadi
@@ -1646,7 +1681,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     f"Taqiqlangan obyekt aniqlandi: {items}",
                     toast_type="error"
                 )
-                self._send_warning_to_server(f"Taqiqlangan obyekt: {items}")
+                yolo_conf = float(config.get("YOLO", "confidence", fallback="0.5"))
+                # Telefon alohida warning type
+                if "cell phone" in forbidden:
+                    self._send_warning_to_server(
+                        description=f"Telefon aniqlandi ({forbidden['cell phone']} ta)",
+                        warning_type="phone_detected",
+                        confidence=yolo_conf
+                    )
+                # Qolgan taqiqlangan obyektlar
+                other_forbidden = {k: v for k, v in forbidden.items() if k != "cell phone"}
+                if other_forbidden:
+                    other_items = ", ".join(f"{name} ({cnt})" for name, cnt in other_forbidden.items())
+                    self._send_warning_to_server(
+                        description=f"Taqiqlangan obyekt: {other_items}",
+                        warning_type="forbidden_object",
+                        confidence=yolo_conf
+                    )
 
             if count == 0:
                 debug("[PERSON_DETECT] Kamera oldida hech kim yo'q")
@@ -1661,7 +1712,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         toast_type="warning"
                     )
                     self._send_warning_to_server(
-                        f"Kamera oldida {count} ta odam aniqlandi"
+                        description=f"Kamera oldida {count} ta odam aniqlandi",
+                        warning_type="multiple_faces",
+                        confidence=float(config.get("YOLO", "confidence", fallback="0.5"))
                     )
             else:
                 # count == 1: normal holat — warning reset
