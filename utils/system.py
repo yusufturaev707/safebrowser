@@ -13,6 +13,22 @@ from utils.logger import debug, warning, error
 
 
 # ============================================
+# Frozen / Base Directory
+# ============================================
+
+def is_frozen() -> bool:
+    """PyInstaller frozen rejimini tekshirish"""
+    return getattr(sys, 'frozen', False)
+
+
+def get_base_dir() -> Path:
+    """Dastur ildiz papkasini qaytarish (frozen va dev rejimda)"""
+    if is_frozen():
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
+
+
+# ============================================
 # Platform Detection
 # ============================================
 
@@ -291,7 +307,7 @@ def get_models_dir() -> Path:
     InsightFace modellar papkasini qaytarish
     """
     # Loyiha papkasida modellar
-    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    project_root = get_base_dir()
     models_dir = project_root / 'insightface_models'
 
     # Agar mavjud bo'lsa

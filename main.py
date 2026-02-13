@@ -1,6 +1,14 @@
+import os
 import sys
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
+
+from utils.system import is_frozen, get_base_dir
+
+# Frozen rejimda CWD ni base_dir ga o'rnatish
+# QPixmap, CSS url() va boshqa nisbiy yo'llar to'g'ri ishlashi uchun
+if is_frozen():
+    os.chdir(get_base_dir())
 
 from ui.main_window import MainWindow
 from utils.logger import get_logger, info, error

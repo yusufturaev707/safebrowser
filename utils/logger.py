@@ -3,15 +3,33 @@ Logger utility - SafeBrowser uchun logging tizimi
 """
 
 import logging
+import os
 import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
+def _get_log_dir() -> Path:
+    """
+    OS ga mos log papkasini aniqlash
+
+    Windows:  %LOCALAPPDATA%/SafeBrowser/logs
+    Linux:    ~/.local/share/safebrowser/logs
+    macOS:    ~/Library/Logs/SafeBrowser
+    """
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        return base / "SafeBrowser" / "logs"
+    elif sys.platform == "darwin":
+        return Path.home() / "Library" / "Logs" / "SafeBrowser"
+    else:
+        return Path.home() / ".local" / "share" / "safebrowser" / "logs"
+
+
 def setup_logger(
     name: str = "SafeBrowser",
-    log_dir: str = "logs",
+    log_dir: str = None,
     log_level: int = logging.DEBUG,
     max_bytes: int = 5 * 1024 * 1024,  # 5 MB
     backup_count: int = 5,
@@ -21,7 +39,7 @@ def setup_logger(
 
     Args:
         name: Logger nomi
-        log_dir: Log fayllar joylashadigan papka
+        log_dir: Log fayllar joylashadigan papka (None bo'lsa OS standart joyi)
         log_level: Logging darajasi (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         max_bytes: Har bir log fayl maksimal hajmi
         backup_count: Saqlanadigan eski log fayllar soni
@@ -39,7 +57,7 @@ def setup_logger(
     logger.setLevel(log_level)
 
     # Log papkasini yaratish
-    log_path = Path(log_dir)
+    log_path = Path(log_dir) if log_dir else _get_log_dir()
     log_path.mkdir(parents=True, exist_ok=True)
 
     # Log fayl nomi - kunlik
